@@ -50,19 +50,40 @@ export interface RentalAgreement {
   paymentMethod?: "BAR" | "EC-Karte" | "Kreditkarte";
 }
 
+export interface ReservationHistoryEntry {
+  id: string;
+  action: "created" | "released" | "edited" | "status_changed" | "completed" | "cancelled";
+  timestamp: string;
+  profileId?: string;
+  profileName?: string;
+}
+
 export interface Reservation {
   id: string;
   trailerId: string;
   clientId: string;
   startDate: string; // ISO date
   endDate: string; // ISO date
-  status: "paid" | "invoiced" | "defect" | "completed" | "active";
+  status: "paid" | "invoiced" | "defect" | "completed" | "active" | "cancelled";
   invoiceNumber?: string;
   defectNote?: string;
   agreement?: RentalAgreement;
+  history?: ReservationHistoryEntry[];
 }
 
 const today = startOfDay(new Date());
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  isOnline: boolean;
+}
+
+export const initialProfiles: UserProfile[] = [
+  { id: "u1", name: "Erwin", isOnline: false },
+  { id: "u2", name: "Steffi", isOnline: false },
+  { id: "u3", name: "BOSS", isOnline: false },
+];
 
 export const initialTrailers: Trailer[] = [
   { id: "t1", plate: "N-DC 882", type: "Laweta", capacity: "2500kg", dimensions: "4m x 2m", tuvExpiry: addDays(today, 180).toISOString(), status: "available" },

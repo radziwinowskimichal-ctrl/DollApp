@@ -23,7 +23,7 @@ interface ReleaseTrailerDialogProps {
 }
 
 export function ReleaseTrailerDialog({ reservation, isOpen, onClose }: ReleaseTrailerDialogProps) {
-  const { clients, trailers, updateClient, updateReservation, language } = useApp();
+  const { clients, trailers, updateClient, updateReservation, language, currentUserId, profiles } = useApp();
   const t = translations[language as keyof typeof translations] || translations.pl;
   const [client, setClient] = useState<Client | null>(null);
   const [agreement, setAgreement] = useState<RentalAgreement>({
@@ -60,11 +60,22 @@ export function ReleaseTrailerDialog({ reservation, isOpen, onClose }: ReleaseTr
     // Update client with new details
     updateClient(client);
     
+    // Add to history
+    const currentUser = profiles.find(p => p.id === currentUserId);
+    const historyEntry = {
+      id: Math.random().toString(36).substring(7),
+      action: "released" as const,
+      timestamp: new Date().toISOString(),
+      profileId: currentUser?.id,
+      profileName: currentUser?.name || "System"
+    };
+
     // Update reservation with agreement and set status to active
     updateReservation({
       ...reservation,
       status: "active",
-      agreement
+      agreement,
+      history: [...(reservation.history || []), historyEntry]
     });
 
     toast.success(t.trailerReleased);

@@ -8,16 +8,20 @@ import { ClientList } from "@/components/ClientList";
 import { TrailerHub } from "@/components/TrailerHub";
 import { DailyOperations } from "@/components/DailyOperations";
 import { Archive as ArchiveComponent } from "@/components/Archive";
+import { LoginScreen } from "@/components/LoginScreen";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Truck, CalendarDays, Users, Clock, Archive } from "lucide-react";
+import { Truck, CalendarDays, Users, Clock, Archive, LogOut, User } from "lucide-react";
 import { useApp } from "@/lib/context";
 import { translations } from "@/lib/translations";
+import { Button } from "@/components/ui/button";
 
 function HomeContent() {
   const searchParams = useSearchParams();
-  const { language } = useApp();
+  const { language, currentUserId, profiles, logoutUser } = useApp();
   const t = translations[language as keyof typeof translations] || translations.pl;
   const [activeTab, setActiveTab] = useState("calendar");
+
+  const me = profiles.find(p => p.id === currentUserId);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -26,12 +30,30 @@ function HomeContent() {
     }
   }, [searchParams]);
 
+  if (!currentUserId) {
+    return <LoginScreen />;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 h-16 flex items-center gap-2">
-          <Truck className="w-6 h-6 text-primary" />
-          <h1 className="text-xl font-bold">{t.appTitle}</h1>
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Truck className="w-6 h-6 text-primary" />
+            <h1 className="text-xl font-bold">{t.appTitle}</h1>
+          </div>
+          <div className="flex items-center gap-4">
+            {me && (
+              <div className="flex items-center gap-2 text-sm font-medium bg-muted/50 py-1.5 px-3 rounded-full">
+                <User className="w-4 h-4 text-primary" />
+                {me.name}
+              </div>
+            )}
+            <Button variant="ghost" size="sm" onClick={logoutUser} className="text-muted-foreground hover:text-foreground">
+              <LogOut className="w-4 h-4 mr-2" />
+              {t.logout || "Wyloguj"}
+            </Button>
+          </div>
         </div>
       </header>
 

@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useApp } from "@/lib/context";
 import { colorClassMap, badgeColorClassMap } from "@/lib/colors";
-import { format, addDays, startOfToday, parseISO, isWithinInterval, isSameDay } from "date-fns";
+import { format, addDays, startOfToday, parseISO, isWithinInterval, isSameDay, startOfDay } from "date-fns";
 import { pl, enUS, de } from "date-fns/locale";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Plus, Check, ChevronsUpDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Check, ChevronsUpDown, Calendar as CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
@@ -43,7 +44,7 @@ import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
 
 export function TrailerCalendar() {
-  const { trailers, reservations, clients, addReservation, addClient, language } = useApp();
+  const { trailers, reservations, clients, addReservation, addClient, language, currentUserId, profiles, updateReservation, deleteReservation, statusColors } = useApp();
   const t = translations[language as keyof typeof translations] || translations.pl;
   
   const dateLocale = language === 'pl' ? pl : language === 'de' ? de : enUS;
@@ -71,10 +72,15 @@ export function TrailerCalendar() {
   const [endDate, setEndDate] = useState<string>("");
   const [pickupTime, setPickupTime] = useState<string>("08:00");
   const [returnTime, setReturnTime] = useState<string>("17:30");
-  const [status, setStatus] = useState<"paid" | "invoiced" | "defect" | "completed" | "active">("paid");
+  const [status, setStatus] = useState<"paid" | "invoiced" | "defect" | "completed" | "active" | "cancelled">("paid");
   const [invoiceNumber, setInvoiceNumber] = useState<string>("");
   const [defectNote, setDefectNote] = useState<string>("");
   const [clientComboboxOpen, setClientComboboxOpen] = useState(false);
+
+  // Popover state
+  const [popoverAddEndDate, setPopoverAddEndDate] = useState(false);
+  const [popoverEditStartDate, setPopoverEditStartDate] = useState(false);
+  const [popoverEditEndDate, setPopoverEditEndDate] = useState(false);
 
   // New Client Form state
   const [isCreatingClient, setIsCreatingClient] = useState(false);
@@ -84,12 +90,10 @@ export function TrailerCalendar() {
   const [newClientEmail, setNewClientEmail] = useState("");
   const [newClientNip, setNewClientNip] = useState("");
 
-  const { updateReservation, deleteReservation, statusColors } = useApp();
-
   const getReservationsForDay = (trailerId: string, date: Date) => {
     return reservations.filter(r => {
       if (r.trailerId !== trailerId) return false;
-      if (r.status === "completed") return false;
+      if (r.status === "completed" || r.status === "cancelled") return false;
       const start = parseISO(r.startDate);
       const end = parseISO(r.endDate);
       return isWithinInterval(date, { start, end }) || isSameDay(date, start) || isSameDay(date, end);
@@ -142,6 +146,43 @@ export function TrailerCalendar() {
     setIsEditingReservation(true);
   };
 
+  const hasOverlap = (trailerId: string, start: Date, end: Date, excludeReservationId?: string) => {
+    return reservations.some(r => {
+      if (r.trailerId !== trailerId) return false;
+      if (r.id === excludeReservationId) return false;
+      if (r.status === 'completed' || r.status === 'cancelled') return false; // Ignore completed/archived reservations
+      
+      const rStart = parseISO(r.startDate);
+      const rEnd = parseISO(r.endDate);
+      
+      // Overlap condition:
+      // NewStart < ExistingEnd AND NewEnd > ExistingStart
+      return (start < rEnd) && (end > rStart);
+    });
+  };
+
+  const getBookedDates = (trailerId: string, excludeResId?: string) => {
+    if (!trailerId) return [];
+    const dates: Date[] = [];
+    reservations.forEach(r => {
+      if (r.trailerId !== trailerId) return;
+      if (r.status === 'completed' || r.status === 'cancelled') return;
+      if (excludeResId && r.id === excludeResId) return;
+      
+      const start = startOfDay(parseISO(r.startDate));
+      const end = startOfDay(parseISO(r.endDate));
+      
+      let current = start;
+      while (current <= end) {
+        if (!dates.some(d => isSameDay(d, current))) {
+          dates.push(current);
+        }
+        current = addDays(current, 1);
+      }
+    });
+    return dates;
+  };
+
   const handleUpdateReservation = () => {
     if (!clientId || !endDate || !selectedDate || !selectedTrailerId || !viewingReservationId) {
       toast.error(t.fillAllFields);
@@ -150,6 +191,41 @@ export function TrailerCalendar() {
 
     const startDateTime = new Date(`${format(selectedDate, "yyyy-MM-dd")}T${pickupTime}:00`);
     const endDateTime = new Date(`${endDate}T${returnTime}:00`);
+    
+    // Check for overlaps
+    if (hasOverlap(selectedTrailerId, startDateTime, endDateTime, viewingReservationId)) {
+       const currentTrailer = trailers.find(t => t.id === selectedTrailerId);
+       if (currentTrailer) {
+         const alternativeTrailer = trailers.find(t => 
+           t.type === currentTrailer.type && 
+           t.id !== currentTrailer.id && 
+           !hasOverlap(t.id, startDateTime, endDateTime, viewingReservationId)
+         );
+         
+         if (alternativeTrailer) {
+            setSelectedTrailerId(alternativeTrailer.id);
+            toast.error(t.suggestedAlternative?.replace('{old}', currentTrailer.plate).replace('{new}', alternativeTrailer.plate) || `Ta przyczepa jest zajęta. Zmieniono przyczepę na dostępną z tej samej klasy: ${alternativeTrailer.plate}. Zweryfikuj i zapisz ponownie.`);
+            return;
+         }
+       }
+       toast.error(t.overlapError || "Error: The trailer is already booked by another client during this time.");
+       return;
+    }
+    
+    const existingRes = reservations.find(r => r.id === viewingReservationId);
+    
+    // Check if status changed or just general edit
+    const isStatusChanged = existingRes?.status !== status;
+    const actionType = isStatusChanged ? "status_changed" : "edited";
+
+    const currentUser = profiles.find(p => p.id === currentUserId);
+    const historyEntry = {
+      id: Math.random().toString(36).substring(7),
+      action: actionType as any,
+      timestamp: new Date().toISOString(),
+      profileId: currentUser?.id,
+      profileName: currentUser?.name || "System"
+    };
 
     updateReservation({
       id: viewingReservationId,
@@ -160,6 +236,7 @@ export function TrailerCalendar() {
       status,
       invoiceNumber: invoiceNumber || undefined,
       defectNote: defectNote || undefined,
+      history: [...(existingRes?.history || []), historyEntry]
     });
 
     toast.success(t.reservationUpdated);
@@ -168,9 +245,26 @@ export function TrailerCalendar() {
 
   const handleDeleteReservation = () => {
     if (!viewingReservationId) return;
-    if (confirm(t.areYouSure)) {
-      deleteReservation(viewingReservationId);
-      toast.success(t.reservationDeleted);
+    if (confirm(t.areYouSureCancel || t.areYouSure)) {
+      const existingRes = reservations.find(r => r.id === viewingReservationId);
+      const currentUser = profiles.find(p => p.id === currentUserId);
+      
+      const historyEntry = {
+        id: Math.random().toString(36).substring(7),
+        action: "cancelled" as const,
+        timestamp: new Date().toISOString(),
+        profileId: currentUser?.id,
+        profileName: currentUser?.name || "System"
+      };
+
+      if (existingRes) {
+        updateReservation({
+          ...existingRes,
+          status: "cancelled",
+          history: [...(existingRes.history || []), historyEntry]
+        });
+        toast.success(t.reservationCancelled || "Reservation cancelled");
+      }
       setIsViewDialogOpen(false);
     }
   };
@@ -183,6 +277,26 @@ export function TrailerCalendar() {
 
     const startDateTime = new Date(`${format(selectedDate, "yyyy-MM-dd")}T${pickupTime}:00`);
     const endDateTime = new Date(`${endDate}T${returnTime}:00`);
+
+    // Check for overlaps
+    if (hasOverlap(selectedTrailerId, startDateTime, endDateTime)) {
+       const currentTrailer = trailers.find(t => t.id === selectedTrailerId);
+       if (currentTrailer) {
+         const alternativeTrailer = trailers.find(t => 
+           t.type === currentTrailer.type && 
+           t.id !== currentTrailer.id && 
+           !hasOverlap(t.id, startDateTime, endDateTime)
+         );
+         
+         if (alternativeTrailer) {
+            setSelectedTrailerId(alternativeTrailer.id);
+            toast.error(t.suggestedAlternative?.replace('{old}', currentTrailer.plate).replace('{new}', alternativeTrailer.plate) || `Ta przyczepa jest zajęta. Zmieniono przyczepę na dostępną z tej samej klasy: ${alternativeTrailer.plate}. Zweryfikuj i zapisz ponownie.`);
+            return;
+         }
+       }
+       toast.error(t.overlapError || "Error: The trailer is already booked by another client during this time.");
+       return;
+    }
 
     addReservation({
       id: Math.random().toString(36).substring(7),
@@ -493,13 +607,35 @@ export function TrailerCalendar() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="endDate">{t.returnDate}</Label>
-                <Input 
-                  id="endDate" 
-                  type="date" 
-                  value={endDate} 
-                  onChange={(e) => setEndDate(e.target.value)} 
-                  min={selectedDate ? format(selectedDate, "yyyy-MM-dd") : ""}
-                />
+                <Popover open={popoverAddEndDate} onOpenChange={setPopoverAddEndDate}>
+                  <PopoverTrigger
+                    className={cn(
+                      buttonVariants({ variant: "outline" }),
+                      "w-full justify-start text-left font-normal",
+                      !endDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {endDate ? format(parseISO(endDate), "d MMMM yyyy", { locale: dateLocale }) : t.returnDate}
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={endDate ? parseISO(endDate) : undefined}
+                        onSelect={(date) => {
+                          if (date) {
+                            setEndDate(format(date, "yyyy-MM-dd"));
+                            setPopoverAddEndDate(false);
+                          }
+                        }}
+                        disabled={[...(selectedDate ? [{ before: startOfDay(selectedDate) }] : []), ...getBookedDates(selectedTrailerId)]}
+                        modifiers={{ booked: getBookedDates(selectedTrailerId) }}
+                        modifiersClassNames={{ booked: "bg-red-100 text-red-600 font-bold hover:bg-red-200 line-through opacity-50" }}
+                        locale={dateLocale}
+                        initialFocus
+                      />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="status">{t.status}</Label>
@@ -612,22 +748,67 @@ export function TrailerCalendar() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
                       <Label htmlFor="edit-startDate">{t.startDate}</Label>
-                      <Input 
-                        id="edit-startDate" 
-                        type="date" 
-                        value={selectedDate ? format(selectedDate, "yyyy-MM-dd") : ""} 
-                        onChange={(e) => setSelectedDate(parseISO(e.target.value))} 
-                      />
+                      <Popover open={popoverEditStartDate} onOpenChange={setPopoverEditStartDate}>
+                        <PopoverTrigger 
+                          className={cn(
+                            buttonVariants({ variant: "outline" }),
+                            "w-full justify-start text-left font-normal",
+                            !selectedDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {selectedDate ? format(selectedDate, "d MMMM yyyy", { locale: dateLocale }) : t.startDate}
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={selectedDate || undefined}
+                            onSelect={(date) => {
+                              if (date) {
+                                setSelectedDate(date);
+                                setPopoverEditStartDate(false);
+                              }
+                            }}
+                            disabled={getBookedDates(selectedTrailerId, viewingReservationId || undefined)}
+                            modifiers={{ booked: getBookedDates(selectedTrailerId, viewingReservationId || undefined) }}
+                            modifiersClassNames={{ booked: "bg-red-100 text-red-600 font-bold hover:bg-red-200 line-through opacity-50" }}
+                            locale={dateLocale}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="edit-endDate">{t.endDate}</Label>
-                      <Input 
-                        id="edit-endDate" 
-                        type="date" 
-                        value={endDate} 
-                        onChange={(e) => setEndDate(e.target.value)} 
-                        min={selectedDate ? format(selectedDate, "yyyy-MM-dd") : ""}
-                      />
+                      <Popover open={popoverEditEndDate} onOpenChange={setPopoverEditEndDate}>
+                        <PopoverTrigger 
+                          className={cn(
+                            buttonVariants({ variant: "outline" }),
+                            "w-full justify-start text-left font-normal",
+                            !endDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {endDate ? format(parseISO(endDate), "d MMMM yyyy", { locale: dateLocale }) : t.endDate}
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={endDate ? parseISO(endDate) : undefined}
+                            onSelect={(date) => {
+                              if (date) {
+                                setEndDate(format(date, "yyyy-MM-dd"));
+                                setPopoverEditEndDate(false);
+                              }
+                            }}
+                            disabled={[...(selectedDate ? [{ before: startOfDay(selectedDate) }] : []), ...getBookedDates(selectedTrailerId, viewingReservationId || undefined)]}
+                            modifiers={{ booked: getBookedDates(selectedTrailerId, viewingReservationId || undefined) }}
+                            modifiersClassNames={{ booked: "bg-red-100 text-red-600 font-bold hover:bg-red-200 line-through opacity-50" }}
+                            locale={dateLocale}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </div>
 
@@ -724,6 +905,7 @@ export function TrailerCalendar() {
                       {res.status === 'invoiced' && t.invoiced}
                       {res.status === 'defect' && t.defect}
                       {res.status === 'completed' && t.completed}
+                      {res.status === 'cancelled' && (t.cancelled || 'Anulowano')}
                     </span>
                   </span>
                 </div>
@@ -737,6 +919,29 @@ export function TrailerCalendar() {
                   <div className="grid grid-cols-3 items-center gap-4">
                     <span className="font-semibold">{t.defectNote}:</span>
                     <span className="col-span-2">{res.defectNote}</span>
+                  </div>
+                )}
+
+                {res.history && res.history.length > 0 && (
+                  <div className="mt-6">
+                    <h4 className="font-semibold text-sm mb-2 opacity-75">{t.history}</h4>
+                    <div className="space-y-2 border-l-2 border-muted pl-4">
+                      {res.history.map((entry, idx) => (
+                        <div key={entry.id || idx} className="text-sm">
+                          <span className="text-muted-foreground mr-2">
+                             {format(parseISO(entry.timestamp), "dd.MM.yyyy HH:mm")}
+                          </span>
+                          <span className="font-medium mr-1">
+                             {typeof t[`action${entry.action}` as keyof typeof t] === 'string' 
+                               ? (t[`action${entry.action}` as keyof typeof t] as string) 
+                               : entry.action}
+                          </span>
+                          <span className="text-muted-foreground">
+                             {t.by} {entry.profileName}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

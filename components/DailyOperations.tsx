@@ -22,8 +22,8 @@ export function DailyOperations() {
   const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
 
-  const todayPickups = reservations.filter(r => isToday(parseISO(r.startDate)) && r.status !== "completed" && r.status !== "active");
-  const todayReturns = reservations.filter(r => isToday(parseISO(r.endDate)) && r.status !== "completed");
+  const todayPickups = reservations.filter(r => isToday(parseISO(r.startDate)) && r.status !== "completed" && r.status !== "active" && r.status !== "cancelled");
+  const todayReturns = reservations.filter(r => isToday(parseISO(r.endDate)) && r.status !== "completed" && r.status !== "cancelled");
 
   const handleComplete = (reservationId: string) => {
     const res = reservations.find(r => r.id === reservationId);
