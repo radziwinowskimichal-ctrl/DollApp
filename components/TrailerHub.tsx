@@ -37,7 +37,7 @@ import { Trailer, TrailerType } from "@/lib/store";
 
 export function TrailerHub() {
   const router = useRouter();
-  const { trailers, addTrailer, updateTrailer, deleteTrailer, language } = useApp();
+  const { trailers, addTrailer, updateTrailer, deleteTrailer, resetTrailers, language } = useApp();
   const t = translations[language as keyof typeof translations] || translations.pl;
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -46,6 +46,10 @@ export function TrailerHub() {
 
   // Form state
   const [plate, setPlate] = useState("");
+  const [vin, setVin] = useState("");
+  const [model, setModel] = useState("");
+  const [specs, setSpecs] = useState("");
+  const [notes, setNotes] = useState("");
   const [type, setType] = useState<TrailerType>("Laweta");
   const [capacity, setCapacity] = useState("");
   const [dimensions, setDimensions] = useState("");
@@ -73,37 +77,49 @@ export function TrailerHub() {
   const handleOpenDialog = (trailer?: Trailer) => {
     if (trailer) {
       setEditingTrailer(trailer);
-      setPlate(trailer.plate);
+      setPlate(trailer.plate || "");
+      setVin(trailer.vin || "");
+      setModel(trailer.model || "");
+      setSpecs(trailer.specs || "");
+      setNotes(trailer.notes || "");
       setType(trailer.type);
       setCapacity(trailer.capacity);
       setDimensions(trailer.dimensions);
-      setTuvExpiry(format(parseISO(trailer.tuvExpiry), "yyyy-MM-dd"));
+      setTuvExpiry(trailer.tuvExpiry ? format(parseISO(trailer.tuvExpiry), "yyyy-MM-dd") : "");
       setStatus(trailer.status);
     } else {
       setEditingTrailer(null);
       setPlate("");
+      setVin("");
+      setModel("");
+      setSpecs("");
+      setNotes("");
       setType("Laweta");
       setCapacity("");
       setDimensions("");
-      setTuvExpiry(format(new Date(), "yyyy-MM-dd"));
+      setTuvExpiry("");
       setStatus("available");
     }
     setIsDialogOpen(true);
   };
 
   const handleSave = () => {
-    if (!plate || !capacity || !dimensions || !tuvExpiry) {
+    if (!capacity || !dimensions) {
       toast.error(t.fillAllFields);
       return;
     }
 
     const trailerData: Trailer = {
       id: editingTrailer ? editingTrailer.id : Math.random().toString(36).substring(7),
-      plate,
+      plate: plate || undefined,
+      vin: vin || undefined,
+      model: model || undefined,
+      specs: specs || undefined,
+      notes: notes || undefined,
       type,
       capacity,
       dimensions,
-      tuvExpiry: new Date(tuvExpiry).toISOString(),
+      tuvExpiry: tuvExpiry ? new Date(tuvExpiry).toISOString() : undefined,
       status,
     };
 
@@ -124,7 +140,11 @@ export function TrailerHub() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex justify-between items-center">
+        <Button variant="outline" onClick={() => resetTrailers()}>
+          <ArrowUpDown className="mr-2 h-4 w-4" />
+          {t.syncData}
+        </Button>
         <Button onClick={() => handleOpenDialog()}>
           <Plus className="mr-2 h-4 w-4" />
           {t.addTrailer}
@@ -137,6 +157,7 @@ export function TrailerHub() {
             <TableRow>
               <TableHead>{t.plate}</TableHead>
               <TableHead>{t.type}</TableHead>
+              <TableHead>{t.modelSpecs}</TableHead>
               <TableHead>{t.capacity}</TableHead>
               <TableHead>{t.dimensions}</TableHead>
               <TableHead>{t.tuvExpiry}</TableHead>
@@ -167,11 +188,39 @@ export function TrailerHub() {
                 onDoubleClick={() => router.push(`/trailers/${trailer.id}`)}
                 className="cursor-pointer"
               >
-                <TableCell className="font-medium">{trailer.plate}</TableCell>
-                <TableCell>{t.trailerTypes[trailer.type as keyof typeof t.trailerTypes]}</TableCell>
+                <TableCell>
+                  <div className="flex flex-col">
+                    {trailer.plate ? (
+                      <span className="font-medium">{trailer.plate}</span>
+                    ) : (
+                      <span className="italic text-muted-foreground">{t.noPlate}</span>
+                    )}
+                    {trailer.vin && (
+                      <span className="text-xs text-muted-foreground font-mono">{trailer.vin}</span>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>{t.trailerTypes[trailer.type as keyof typeof t.trailerTypes] || trailer.type}</TableCell>
+                <TableCell>
+                  <div className="flex flex-col">
+                    <span className="font-medium">{trailer.model || "-"}</span>
+                    {trailer.specs && (
+                      <span className="text-xs text-muted-foreground">{trailer.specs}</span>
+                    )}
+                    {trailer.notes && (
+                      <span className="text-xs text-amber-600 italic font-medium mt-1">{trailer.notes}</span>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell>{trailer.capacity}</TableCell>
                 <TableCell>{trailer.dimensions}</TableCell>
-                <TableCell>{format(parseISO(trailer.tuvExpiry), "dd.MM.yyyy")}</TableCell>
+                <TableCell>
+                  {trailer.tuvExpiry ? (
+                    format(parseISO(trailer.tuvExpiry), "dd.MM.yyyy")
+                  ) : (
+                    <span className="text-muted-foreground italic">-</span>
+                  )}
+                </TableCell>
                 <TableCell>
                   <Badge variant={trailer.status === "available" ? "default" : "destructive"}>
                     {trailer.status === "available" ? t.available : t.service}
@@ -199,23 +248,47 @@ export function TrailerHub() {
             <DialogTitle>{editingTrailer ? t.editTrailer : t.addTrailer}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="plate">{t.plate}</Label>
-              <Input id="plate" value={plate} onChange={(e) => setPlate(e.target.value)} />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="plate">{t.plate}</Label>
+                <Input id="plate" value={plate} onChange={(e) => setPlate(e.target.value)} placeholder="ABC-123" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="vin">{t.vin}</Label>
+                <Input id="vin" value={vin} onChange={(e) => setVin(e.target.value)} placeholder="WBA..." />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="model">{t.model}</Label>
+                <Input id="model" value={model} onChange={(e) => setModel(e.target.value)} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="type">{t.type}</Label>
+                <Select value={type} onValueChange={(v: any) => setType(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Laweta">{t.trailerTypes.Laweta}</SelectItem>
+                    <SelectItem value="Chłodnia">{t.trailerTypes.Chłodnia}</SelectItem>
+                    <SelectItem value="Konie">{t.trailerTypes.Konie}</SelectItem>
+                    <SelectItem value="Wciągarka">{t.trailerTypes.Wciągarka}</SelectItem>
+                    <SelectItem value="Przyczepa kablowa">{t.trailerTypes["Przyczepa kablowa"]}</SelectItem>
+                    <SelectItem value="Wciągarka pomocnicza">{t.trailerTypes["Wciągarka pomocnicza"]}</SelectItem>
+                    <SelectItem value="Wpycharka do kabli">{t.trailerTypes["Wpycharka do kabli"]}</SelectItem>
+                    <SelectItem value="Kompresor">{t.trailerTypes.Kompresor}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="type">{t.type}</Label>
-              <Select value={type} onValueChange={(v: any) => setType(v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Laweta">{t.trailerTypes.Laweta}</SelectItem>
-                  <SelectItem value="Chłodnia">{t.trailerTypes.Chłodnia}</SelectItem>
-                  <SelectItem value="Konie">{t.trailerTypes.Konie}</SelectItem>
-                  <SelectItem value="Wciągarka">{t.trailerTypes.Wciągarka}</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="specs">{t.specs}</Label>
+              <Input id="specs" value={specs} onChange={(e) => setSpecs(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="notes">{t.trailerNotes}</Label>
+              <Input id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="capacity">{t.capacity}</Label>

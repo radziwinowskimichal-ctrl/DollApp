@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Trailer, Client, Reservation, UserProfile, initialTrailers, initialClients, initialReservations, initialProfiles } from "./store";
 import { ColorOption } from "./colors";
+import { toast } from "sonner";
 
 export type StatusColors = Record<Reservation["status"], ColorOption>;
 
@@ -30,6 +31,7 @@ interface AppState {
   addTrailer: (trailer: Trailer) => void;
   updateTrailer: (trailer: Trailer) => void;
   deleteTrailer: (id: string) => void;
+  resetTrailers: () => void;
   updateClientBalance: (id: string, amount: number) => void;
   addClient: (client: Client) => void;
   updateClient: (client: Client) => void;
@@ -154,6 +156,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTrailers((prev) => prev.filter((t) => t.id !== id));
   };
 
+  const resetTrailers = () => {
+    setTrailers([...initialTrailers]);
+    toast.success("Baza przyczep została zsynchronizowana.");
+  };
+
   const updateClientBalance = (id: string, amount: number) => {
     setClients((prev) => prev.map((c) => (c.id === id ? { ...c, balance: c.balance + amount } : c)));
   };
@@ -201,6 +208,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addTrailer,
       updateTrailer,
       deleteTrailer,
+      resetTrailers,
       updateClientBalance, 
       addClient, 
       updateClient,

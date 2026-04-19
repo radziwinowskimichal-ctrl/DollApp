@@ -56,17 +56,25 @@ export default function TrailerDetailsPage() {
                 <Truck className="w-5 h-5 text-primary" />
                 {t.trailerDetails}
               </CardTitle>
-              <CardDescription>Podstawowe informacje o pojeździe</CardDescription>
+              <CardDescription>Podstawowe informacje o sprzęcie</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">{t.plate}</p>
-                  <p className="font-medium text-lg">{trailer.plate}</p>
+                  <p className="font-medium text-lg">{trailer.plate || <span className="italic text-muted-foreground">{t.noPlate}</span>}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">{t.vin}</p>
+                  <p className="font-medium">{trailer.vin || "-"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">{t.model}</p>
+                  <p className="font-medium">{trailer.model || "-"}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">{t.type}</p>
-                  <p className="font-medium">{t.trailerTypes[trailer.type as keyof typeof t.trailerTypes]}</p>
+                  <p className="font-medium">{t.trailerTypes[trailer.type as keyof typeof t.trailerTypes] || trailer.type}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">{t.capacity}</p>
@@ -77,9 +85,23 @@ export default function TrailerDetailsPage() {
                   <p className="font-medium">{trailer.dimensions}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">{t.tuvExpiry}</p>
-                  <p className="font-medium">{format(parseISO(trailer.tuvExpiry), "dd.MM.yyyy")}</p>
+                  <p className="text-sm text-muted-foreground">{t.specs}</p>
+                  <p className="font-medium">{trailer.specs || "-"}</p>
                 </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">{t.tuvExpiry}</p>
+                  <p className="font-medium">
+                    {trailer.tuvExpiry ? format(parseISO(trailer.tuvExpiry), "dd.MM.yyyy") : "-"}
+                  </p>
+                </div>
+                {trailer.notes && (
+                  <div className="space-y-1 sm:col-span-2">
+                    <p className="text-sm text-muted-foreground">{t.trailerNotes}</p>
+                    <p className="font-medium bg-muted/50 p-3 rounded-md border border-amber-200 text-amber-900 italic">
+                      {trailer.notes}
+                    </p>
+                  </div>
+                )}
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">{t.status}</p>
                   <Badge variant={trailer.status === "available" ? "default" : "destructive"} className="mt-1">

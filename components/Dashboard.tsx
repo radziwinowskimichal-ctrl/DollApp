@@ -39,6 +39,7 @@ export function Dashboard({ onActionClick }: DashboardProps) {
   const inService = trailers.filter(t => t.status === "service");
   
   const upcomingTuv = trailers.filter(t => {
+    if (!t.tuvExpiry) return false;
     const tuvDate = parseISO(t.tuvExpiry);
     return isBefore(tuvDate, addDays(today, 30));
   });
@@ -87,8 +88,8 @@ export function Dashboard({ onActionClick }: DashboardProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{inService.length}</div>
-          <p className="text-xs text-muted-foreground">
-            {inService.map(t => t.plate).join(", ") || t.none}
+          <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+            {inService.map(t => t.plate || t.model || t.type).join(", ") || t.none}
           </p>
         </CardContent>
       </Card>
@@ -125,15 +126,20 @@ export function Dashboard({ onActionClick }: DashboardProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {[...trailers].sort((a, b) => compareAsc(parseISO(a.tuvExpiry), parseISO(b.tuvExpiry))).map((trailer) => {
-                   const isExpired = isBefore(parseISO(trailer.tuvExpiry), today);
-                   const isExpiringSoon = isBefore(parseISO(trailer.tuvExpiry), addDays(today, 30));
+                {[...trailers]
+                  .filter(t => t.tuvExpiry)
+                  .sort((a, b) => compareAsc(parseISO(a.tuvExpiry!), parseISO(b.tuvExpiry!)))
+                  .map((trailer) => {
+                   const isExpired = isBefore(parseISO(trailer.tuvExpiry!), today);
+                   const isExpiringSoon = isBefore(parseISO(trailer.tuvExpiry!), addDays(today, 30));
                    return (
                      <TableRow key={trailer.id}>
-                       <TableCell className="font-medium">{trailer.plate}</TableCell>
-                       <TableCell>{t.trailerTypes[trailer.type as keyof typeof t.trailerTypes]}</TableCell>
+                       <TableCell className="font-medium">
+                         {trailer.plate || <span className="italic text-muted-foreground">{t.noPlate}</span>}
+                       </TableCell>
+                       <TableCell>{t.trailerTypes[trailer.type as keyof typeof t.trailerTypes] || trailer.type}</TableCell>
                        <TableCell className={isExpired ? "text-destructive font-bold" : isExpiringSoon ? "text-amber-500 font-medium" : ""}>
-                         {format(parseISO(trailer.tuvExpiry), "dd.MM.yyyy")}
+                         {format(parseISO(trailer.tuvExpiry!), "dd.MM.yyyy")}
                        </TableCell>
                        <TableCell>
                          <Badge variant={trailer.status === "available" ? "default" : "destructive"}>
