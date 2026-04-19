@@ -12,11 +12,12 @@ import { Truck, User, Calendar, FileText, CheckCircle2, Search, XCircle } from "
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { Reservation, Trailer, Client } from "@/lib/store";
 import { PrintableAgreement } from "./PrintableAgreement";
 import { PrintableReturnProtocol } from "./PrintableReturnProtocol";
-import { Printer } from "lucide-react";
+import { Printer, Camera } from "lucide-react";
 import { printDocument } from "@/lib/print";
 import { toast } from "sonner";
 
@@ -45,6 +46,7 @@ export function Archive() {
 
   const [printAgreementRes, setPrintAgreementRes] = useState<Reservation | null>(null);
   const [printProtocolRes, setPrintProtocolRes] = useState<Reservation | null>(null);
+  const [viewPhotos, setViewPhotos] = useState<{urls: string[], type: string} | null>(null);
 
   const handlePrintAgreement = (res: Reservation) => {
     setPrintProtocolRes(null);
@@ -134,9 +136,21 @@ export function Archive() {
         </div>
         
         {/* Document Actions */}
-        {(res.agreement || res.protocol) && (
-          <div className="bg-muted/10 border-t p-4 flex gap-3 justify-end items-center">
+        {(res.agreement || res.protocol || res.pickupPhotos || res.returnPhotos) && (
+          <div className="bg-muted/10 border-t p-4 flex gap-3 justify-end items-center flex-wrap">
             <span className="text-sm text-muted-foreground mr-auto pl-2">Zapisane dokumenty:</span>
+            {res.pickupPhotos && res.pickupPhotos.length > 0 && (
+              <Button size="sm" variant="outline" onClick={() => setViewPhotos({urls: res.pickupPhotos!, type: "Wydanie"})} className="gap-2">
+                <Camera className="w-4 h-4" />
+                Zdjęcia (Wydanie)
+              </Button>
+            )}
+            {res.returnPhotos && res.returnPhotos.length > 0 && (
+              <Button size="sm" variant="outline" onClick={() => setViewPhotos({urls: res.returnPhotos!, type: "Zdanie"})} className="gap-2">
+                <Camera className="w-4 h-4" />
+                Zdjęcia (Zdanie)
+              </Button>
+            )}
             {res.agreement && (
               <Button size="sm" variant="outline" onClick={() => handlePrintAgreement(res)} className="gap-2">
                 <Printer className="w-4 h-4" />
@@ -221,6 +235,22 @@ export function Archive() {
           trailer={trailers.find(t => t.id === printProtocolRes.trailerId)!}
         />
       )}
+
+      {/* View Photos Dialog */}
+      <Dialog open={!!viewPhotos} onOpenChange={(open) => !open && setViewPhotos(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Dokumentacja wizualna ({viewPhotos?.type})</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 py-4">
+            {viewPhotos?.urls.map((photo, i) => (
+              <a href={photo} target="_blank" rel="noopener noreferrer" key={i} className="block aspect-square overflow-hidden rounded-md border hover:opacity-90 transition-opacity">
+                <img src={photo} alt={`Photo ${i}`} className="w-full h-full object-cover" />
+              </a>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

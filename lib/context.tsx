@@ -37,6 +37,7 @@ interface AppState {
   updateStatusColor: (status: Reservation["status"], color: ColorOption) => void;
   loginUser: (id: string) => void;
   logoutUser: () => void;
+  checkTrailerAvailability: (trailerId: string, start: Date, end: Date, excludeReservationId?: string) => boolean;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -169,6 +170,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setStatusColors((prev) => ({ ...prev, [status]: color }));
   };
 
+  const checkTrailerAvailability = (trailerId: string, start: Date, end: Date, excludeReservationId?: string) => {
+    return !reservations.some(res => {
+      if (res.status === "cancelled") return false;
+      if (res.trailerId !== trailerId) return false;
+      if (excludeReservationId && res.id === excludeReservationId) return false;
+
+      const resStart = new Date(res.startDate);
+      const resEnd = new Date(res.endDate);
+      
+      const resEndWithBuffer = new Date(resEnd.getTime() + 60 * 60 * 1000); 
+
+      return start < resEndWithBuffer && end > resStart;
+    });
+  };
+
   return (
     <AppContext.Provider value={{ 
       trailers, 
@@ -191,7 +207,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setLanguage,
       updateStatusColor,
       loginUser,
-      logoutUser
+      logoutUser,
+      checkTrailerAvailability
     }}>
       {children}
     </AppContext.Provider>

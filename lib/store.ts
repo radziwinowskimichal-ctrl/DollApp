@@ -85,6 +85,8 @@ export interface Reservation {
   agreement?: RentalAgreement;
   protocol?: ReturnProtocolState;
   history?: ReservationHistoryEntry[];
+  pickupPhotos?: string[];
+  returnPhotos?: string[];
 }
 
 const today = startOfDay(new Date());

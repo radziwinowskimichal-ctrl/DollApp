@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useApp } from "@/lib/context";
 import { colorClassMap, badgeColorClassMap } from "@/lib/colors";
 import { format, addDays, startOfToday, parseISO, isWithinInterval, isSameDay } from "date-fns";
@@ -43,7 +43,8 @@ import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
 
 export function TrailerCalendar() {
-  const { trailers, reservations, clients, addReservation, addClient, language, currentUserId, profiles, updateReservation, deleteReservation, statusColors } = useApp();
+  const { trailers, reservations, clients, addReservation, addClient, language, currentUserId, profiles, updateReservation, deleteReservation, statusColors, checkTrailerAvailability } = useApp();
+
   const t = translations[language as keyof typeof translations] || translations.pl;
   
   const dateLocale = language === 'pl' ? pl : language === 'de' ? de : enUS;
@@ -150,6 +151,12 @@ export function TrailerCalendar() {
     const startDateTime = new Date(`${format(selectedDate, "yyyy-MM-dd")}T${pickupTime}:00`);
     const endDateTime = new Date(`${endDate}T${returnTime}:00`);
     
+    // Check collision
+    if (!checkTrailerAvailability(selectedTrailerId, startDateTime, endDateTime, viewingReservationId)) {
+      toast.error("Wskazany termin koliduje z inną rezerwacją. Uwzględnij też 60 minut przerwy.");
+      return;
+    }
+    
     const existingRes = reservations.find(r => r.id === viewingReservationId);
     
     // Check if status changed or just general edit
@@ -217,6 +224,12 @@ export function TrailerCalendar() {
 
     const startDateTime = new Date(`${format(selectedDate, "yyyy-MM-dd")}T${pickupTime}:00`);
     const endDateTime = new Date(`${endDate}T${returnTime}:00`);
+
+    // Check collision
+    if (!checkTrailerAvailability(selectedTrailerId, startDateTime, endDateTime)) {
+      toast.error("Wskazany termin koliduje z inną rezerwacją. Uwzględnij też 60 minut przerwy.");
+      return;
+    }
 
     addReservation({
       id: Math.random().toString(36).substring(7),
@@ -352,31 +365,58 @@ export function TrailerCalendar() {
                         
                         let left = 0;
                         let right = 0;
+                        let bufferLeft = 0;
+                        let bufferRight = 0;
+
+                        const bufferEnd = new Date(end.getTime() + 60 * 60 * 1000);
 
                         const getMinutesFrom8AM = (date: Date) => {
                           const hours = date.getHours();
                           const minutes = date.getMinutes();
-                          return Math.max(0, Math.min(570, (hours - 8) * 60 + minutes));
+                          return Math.max(0, Math.min((18 - 8) * 60, (hours - 8) * 60 + minutes)); // 18-8 = 10h = 600m
                         };
 
                         if (isSameDay(start, day)) {
-                          left = (getMinutesFrom8AM(start) / 570) * 100;
+                          left = (getMinutesFrom8AM(start) / 600) * 100;
                         }
-                        
                         if (isSameDay(end, day)) {
-                          right = 100 - ((getMinutesFrom8AM(end) / 570) * 100);
+                          right = 100 - ((getMinutesFrom8AM(end) / 600) * 100);
+                          bufferLeft = (getMinutesFrom8AM(end) / 600) * 100;
+                        } else if (end < day && bufferEnd > day) {
+                          bufferLeft = 0;
+                        } else {
+                          bufferLeft = 100; // hide buffer
                         }
 
+                        if (isSameDay(bufferEnd, day)) {
+                          bufferRight = 100 - ((getMinutesFrom8AM(bufferEnd) / 600) * 100);
+                        } else if (bufferEnd > day) {
+                          bufferRight = 0;
+                        } else {
+                          bufferRight = 100;
+                        }
+
+                        // Only show buffer if we haven't reached 100% bufferLeft
+                        const showBuffer = bufferLeft < 100;
+
                         return (
-                          <div 
-                            key={res.id}
-                            className={`absolute rounded-md p-1 text-[10px] leading-tight text-white overflow-hidden ${getStatusColor(res.status)} z-10 shadow-sm border border-white/20`}
-                            style={{ left: `calc(${left}% + 2px)`, right: `calc(${right}% + 2px)`, top: '4px', bottom: '4px' }}
-                            onClick={(e) => handleReservationClick(e, res.id)}
-                          >
-                            <div className="font-semibold truncate">{client?.name}</div>
-                            <div className="truncate opacity-80">{res.status === 'defect' ? t.service : t.reserved}</div>
-                          </div>
+                          <React.Fragment key={res.id}>
+                            {showBuffer && (
+                              <div
+                                className="absolute rounded-md bg-muted/80 z-0 opacity-50 border border-muted-foreground/20"
+                                style={{ left: `calc(${bufferLeft}% + 2px)`, right: `calc(${bufferRight}% + 2px)`, top: '6px', bottom: '6px' }}
+                                title="Przerwa techniczna (60 min)"
+                              />
+                            )}
+                            <div 
+                              className={`absolute rounded-md p-1 text-[10px] leading-tight text-white overflow-hidden ${getStatusColor(res.status)} z-10 shadow-sm border border-white/20`}
+                              style={{ left: `calc(${left}% + 2px)`, right: `calc(${right}% + 2px)`, top: '4px', bottom: '4px' }}
+                              onClick={(e) => handleReservationClick(e, res.id)}
+                            >
+                              <div className="font-semibold truncate">{client?.name}</div>
+                              <div className="truncate opacity-80">{res.status === 'defect' ? t.service : t.reserved}</div>
+                            </div>
+                          </React.Fragment>
                         );
                       })}
                     </div>

@@ -34,6 +34,7 @@ export function ReleaseTrailerDialog({ reservation, isOpen, onClose }: ReleaseTr
     deposits: { lock: false, straps: false, adapter: false, registration: false, general: 0, total: 0 },
     paymentMethod: "BAR"
   });
+  const [pickupPhotos, setPickupPhotos] = useState<string[]>([]);
 
   useEffect(() => {
     if (reservation) {
@@ -50,12 +51,35 @@ export function ReleaseTrailerDialog({ reservation, isOpen, onClose }: ReleaseTr
           paymentMethod: "BAR"
         });
       }
+      if (reservation.pickupPhotos) {
+        setPickupPhotos(reservation.pickupPhotos);
+      } else {
+        setPickupPhotos([]);
+      }
     }
   }, [reservation, clients, isOpen]);
 
   if (!reservation || !client) return null;
 
   const trailer = trailers.find(t => t.id === reservation.trailerId);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      Array.from(e.target.files).forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            setPickupPhotos(prev => [...prev, reader.result as string]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  const removePhoto = (index: number) => {
+    setPickupPhotos(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleSave = () => {
     // Update client with new details
@@ -76,6 +100,7 @@ export function ReleaseTrailerDialog({ reservation, isOpen, onClose }: ReleaseTr
       ...reservation,
       status: "active",
       agreement,
+      pickupPhotos,
       history: [...(reservation.history || []), historyEntry]
     });
 
@@ -174,6 +199,26 @@ export function ReleaseTrailerDialog({ reservation, isOpen, onClose }: ReleaseTr
             <div className="bg-muted p-3 rounded-md mb-4">
               <p className="font-medium">{t.trailer}: {trailer?.plate}</p>
               <p className="text-sm text-muted-foreground">{trailer?.type} | {trailer?.capacity} | {trailer?.dimensions}</p>
+              {trailer && (() => {
+                const isLaweta = trailer.type === "Laweta";
+                const capStr = trailer.capacity?.toLowerCase() || "0";
+                const num = parseFloat(capStr.replace(/[^0-9.]/g, "") || "0");
+                const isTon = capStr.includes("t");
+                const weightInKg = isTon ? num * 1000 : num;
+                const requiresBE = isLaweta || weightInKg > 750;
+
+                if (!requiresBE) return null;
+
+                const clientHasBE = client.driverLicenseClass?.toLowerCase().includes("be") || client.driverLicenseClass?.toLowerCase().includes("b+e") || client.driverLicenseClass?.toLowerCase().includes("ce");
+
+                return (
+                  <div className={`mt-2 p-2 rounded-sm border text-sm font-semibold ${clientHasBE ? 'text-green-700 bg-green-50 border-green-200' : 'text-amber-600 bg-amber-50 border-amber-200'}`}>
+                    {clientHasBE 
+                      ? "✓ Klient posiada prawo jazdy kat. B+E (zweryfikowane z profilu)."
+                      : "Uwaga: Ta przyczepa wymaga upewnienia się, czy klient posiada prawo jazdy kategorii B+E!"}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -253,6 +298,33 @@ export function ReleaseTrailerDialog({ reservation, isOpen, onClose }: ReleaseTr
                   <SelectItem value="Kreditkarte">{t.creditCard}</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <h4 className="font-medium mt-6 border-b pb-2">Dokumentacja wizualna - Wydanie</h4>
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <label className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 cursor-pointer">
+                  Dodaj zdjęcie
+                  <input type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={handlePhotoUpload} />
+                </label>
+                <span className="text-sm text-muted-foreground">{pickupPhotos.length} zdjęć</span>
+              </div>
+              
+              {pickupPhotos.length > 0 && (
+                <div className="grid grid-cols-4 gap-2">
+                  {pickupPhotos.map((photo, i) => (
+                    <div key={i} className="relative aspect-square rounded overflow-hidden border">
+                      <img src={photo} alt={`Pickup photo ${i+1}`} className="w-full h-full object-cover" />
+                      <button 
+                        onClick={() => removePhoto(i)}
+                        className="absolute top-1 right-1 bg-black/50 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-black"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
           </div>

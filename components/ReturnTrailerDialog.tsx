@@ -39,6 +39,7 @@ export function ReturnTrailerDialog({ reservation, isOpen, onClose }: ReturnTrai
     damageDescription: "",
     returnDate: format(new Date(), "dd.MM.yyyy")
   });
+  const [returnPhotos, setReturnPhotos] = useState<string[]>([]);
 
   useEffect(() => {
     if (reservation) {
@@ -47,12 +48,35 @@ export function ReturnTrailerDialog({ reservation, isOpen, onClose }: ReturnTrai
       if (reservation.protocol) {
          setProtocol({ ...reservation.protocol, returnDate: format(new Date(), "dd.MM.yyyy") });
       }
+      if (reservation.returnPhotos) {
+        setReturnPhotos(reservation.returnPhotos);
+      } else {
+        setReturnPhotos([]);
+      }
     }
   }, [reservation, clients, isOpen]);
 
   if (!reservation || !client) return null;
 
   const trailer = trailers.find(t => t.id === reservation.trailerId);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      Array.from(e.target.files).forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            setReturnPhotos(prev => [...prev, reader.result as string]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  const removePhoto = (index: number) => {
+    setReturnPhotos(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleSave = () => {
     const currentUser = profiles.find(p => p.id === currentUserId);
@@ -68,6 +92,7 @@ export function ReturnTrailerDialog({ reservation, isOpen, onClose }: ReturnTrai
       ...reservation,
       status: "completed",
       protocol,
+      returnPhotos,
       history: [...(reservation.history || []), historyEntry]
     });
 
@@ -179,6 +204,34 @@ export function ReturnTrailerDialog({ reservation, isOpen, onClose }: ReturnTrai
                     className="h-24"
                 />
             </div>
+
+            <h4 className="font-medium mt-6 border-b pb-2">Dokumentacja wizualna - Zdanie</h4>
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <label className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 cursor-pointer">
+                  Dodaj zdjęcie
+                  <input type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={handlePhotoUpload} />
+                </label>
+                <span className="text-sm text-muted-foreground">{returnPhotos.length} zdjęć</span>
+              </div>
+              
+              {returnPhotos.length > 0 && (
+                <div className="grid grid-cols-4 gap-2">
+                  {returnPhotos.map((photo, i) => (
+                    <div key={i} className="relative aspect-square rounded overflow-hidden border">
+                      <img src={photo} alt={`Return photo ${i+1}`} className="w-full h-full object-cover" />
+                      <button 
+                        onClick={() => removePhoto(i)}
+                        className="absolute top-1 right-1 bg-black/50 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-black"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
           </div>
 
           <DialogFooter className="mt-6 flex justify-between sm:justify-between w-full">
