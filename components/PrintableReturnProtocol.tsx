@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import React from 'react';
 import { Client, Reservation, Trailer } from '@/lib/store';
 
 interface PrintableReturnProtocolProps {
@@ -19,12 +18,6 @@ const CheckboxCell = ({ label, checked }: { label: string, checked?: boolean }) 
 
 export const PrintableReturnProtocol = React.forwardRef<HTMLDivElement, PrintableReturnProtocolProps>(
   ({ reservation, client, trailer }, ref) => {
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-      setMounted(true);
-    }, []);
-
     const protocol = reservation.protocol;
     const protocolItems = [
       { label: 'Fahrzeugausstattung', key: 'fahrzeugausstattung' as const },
@@ -145,8 +138,7 @@ export const PrintableReturnProtocol = React.forwardRef<HTMLDivElement, Printabl
       </div>
     );
 
-    if (!mounted) return null;
-    return createPortal(content, document.body);
+    return content;
   }
 );
 

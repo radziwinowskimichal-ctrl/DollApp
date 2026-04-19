@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,25 +38,27 @@ export function ReleaseTrailerDialog({ reservation, isOpen, onClose }: ReleaseTr
   const [pickupPhotos, setPickupPhotos] = useState<string[]>([]);
 
   useEffect(() => {
-    if (reservation) {
-      const c = clients.find(c => c.id === reservation.clientId);
-      if (c) setClient({ ...c });
-      if (reservation.agreement) {
-        setAgreement({ ...reservation.agreement });
-      } else {
-        setAgreement({
-          pickupTime: format(new Date(), "HH:mm"),
-          returnTime: "12:00",
-          prices: { daily: 0, weekend: 0, weekly: 0, total: 0 },
-          deposits: { lock: false, straps: false, adapter: false, registration: false, general: 0, total: 0 },
-          paymentMethod: "BAR"
-        });
-      }
-      if (reservation.pickupPhotos) {
-        setPickupPhotos(reservation.pickupPhotos);
-      } else {
-        setPickupPhotos([]);
-      }
+    if (reservation && isOpen) {
+      setTimeout(() => {
+        const c = clients.find(c => c.id === reservation.clientId);
+        if (c) setClient({ ...c });
+        if (reservation.agreement) {
+          setAgreement({ ...reservation.agreement });
+        } else {
+          setAgreement({
+            pickupTime: format(new Date(), "HH:mm"),
+            returnTime: "12:00",
+            prices: { daily: 0, weekend: 0, weekly: 0, total: 0 },
+            deposits: { lock: false, straps: false, adapter: false, registration: false, general: 0, total: 0 },
+            paymentMethod: "BAR"
+          });
+        }
+        if (reservation.pickupPhotos) {
+          setPickupPhotos(reservation.pickupPhotos);
+        } else {
+          setPickupPhotos([]);
+        }
+      }, 0);
     }
   }, [reservation, clients, isOpen]);
 
@@ -85,24 +88,14 @@ export function ReleaseTrailerDialog({ reservation, isOpen, onClose }: ReleaseTr
     // Update client with new details
     updateClient(client);
     
-    // Add to history
-    const currentUser = profiles.find(p => p.id === currentUserId);
-    const historyEntry = {
-      id: Math.random().toString(36).substring(7),
-      action: "released" as const,
-      timestamp: new Date().toISOString(),
-      profileId: currentUser?.id,
-      profileName: currentUser?.name || "System"
-    };
-
     // Update reservation with agreement and set status to active
+    // History is now handled by the context if we pass the action
     updateReservation({
       ...reservation,
       status: "active",
       agreement,
       pickupPhotos,
-      history: [...(reservation.history || []), historyEntry]
-    });
+    }, "released");
 
     toast.success(t.trailerReleased);
     onClose();
@@ -120,7 +113,7 @@ export function ReleaseTrailerDialog({ reservation, isOpen, onClose }: ReleaseTr
   const handlePrint = () => {
     const success = printDocument('print-area', t.printAgreementTitle || 'Umowa_Wydanie');
     if (!success) {
-      toast.error(t.printDocumentNotFound || "Zablokowano okno pop-up. Zezwól na wyskakujące okna, aby drukować.");
+      toast.error(t.printDocumentNotFound || t.popupBlockedError);
     }
   };
 
@@ -145,7 +138,7 @@ export function ReleaseTrailerDialog({ reservation, isOpen, onClose }: ReleaseTr
               
               <div className="space-y-2 col-span-2">
                 <Label>{t.streetAndNumber}</Label>
-                <Input value={client.address || ''} onChange={e => setClient({...client, address: e.target.value})} placeholder="np. Raudtener Str. 8" />
+                <Input value={client.address || ''} onChange={e => setClient({...client, address: e.target.value})} placeholder={t.exampleAddress} />
               </div>
 
               <div className="space-y-2">
@@ -163,7 +156,7 @@ export function ReleaseTrailerDialog({ reservation, isOpen, onClose }: ReleaseTr
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{t.category}</Label>
-                <Input value={client.driverLicenseClass || ''} onChange={e => setClient({...client, driverLicenseClass: e.target.value})} placeholder="np. B, BE" />
+                <Input value={client.driverLicenseClass || ''} onChange={e => setClient({...client, driverLicenseClass: e.target.value})} placeholder={t.exampleLicense} />
               </div>
               <div className="space-y-2">
                 <Label>{t.issueDate}</Label>
@@ -198,9 +191,12 @@ export function ReleaseTrailerDialog({ reservation, isOpen, onClose }: ReleaseTr
             
             <div className="bg-muted p-3 rounded-md mb-4">
               <p className="font-medium">{t.trailer}: {trailer?.plate}</p>
-              <p className="text-sm text-muted-foreground">{trailer?.type} | {trailer?.capacity} | {trailer?.dimensions}</p>
+              <p className="text-sm text-muted-foreground">
+                {(t.trailerTypes as any)[trailer?.type || ""] || trailer?.type} | {trailer?.capacity} | {trailer?.dimensions}
+              </p>
               {trailer && (() => {
-                const isLaweta = trailer.type.toString().includes("Laweta");
+                const typeStr = trailer.type.toString();
+                const isLaweta = typeStr.includes("Laweta") || typeStr.includes("carTransporter");
                 const capStr = trailer.capacity?.toLowerCase() || "0";
                 const num = parseFloat(capStr.replace(/[^0-9.]/g, "") || "0");
                 const isTon = capStr.includes("t");
@@ -214,8 +210,8 @@ export function ReleaseTrailerDialog({ reservation, isOpen, onClose }: ReleaseTr
                 return (
                   <div className={`mt-2 p-2 rounded-sm border text-sm font-semibold ${clientHasBE ? 'text-green-700 bg-green-50 border-green-200' : 'text-amber-600 bg-amber-50 border-amber-200'}`}>
                     {clientHasBE 
-                      ? "✓ Klient posiada prawo jazdy kat. B+E (zweryfikowane z profilu)."
-                      : "Uwaga: Ta przyczepa wymaga upewnienia się, czy klient posiada prawo jazdy kategorii B+E!"}
+                      ? t.licenseHasBE
+                      : t.licenseRequiresBE}
                   </div>
                 );
               })()}
@@ -300,21 +296,21 @@ export function ReleaseTrailerDialog({ reservation, isOpen, onClose }: ReleaseTr
               </Select>
             </div>
 
-            <h4 className="font-medium mt-6 border-b pb-2">Dokumentacja wizualna - Wydanie</h4>
+            <h4 className="font-medium mt-6 border-b pb-2">{t.visualDocumentationPickup}</h4>
             <div className="space-y-4">
               <div className="flex items-center gap-4">
                 <label className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 cursor-pointer">
-                  Dodaj zdjęcie
+                  {t.addPhoto}
                   <input type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={handlePhotoUpload} />
                 </label>
-                <span className="text-sm text-muted-foreground">{pickupPhotos.length} zdjęć</span>
+                <span className="text-sm text-muted-foreground">{pickupPhotos.length} {t.photosCount}</span>
               </div>
               
               {pickupPhotos.length > 0 && (
                 <div className="grid grid-cols-4 gap-2">
                   {pickupPhotos.map((photo, i) => (
                     <div key={i} className="relative aspect-square rounded overflow-hidden border">
-                      <img src={photo} alt={`Pickup photo ${i+1}`} className="w-full h-full object-cover" />
+                      <Image src={photo} alt={`Pickup photo ${i+1}`} width={200} height={200} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       <button 
                         onClick={() => removePhoto(i)}
                         className="absolute top-1 right-1 bg-black/50 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-black"

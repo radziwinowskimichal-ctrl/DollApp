@@ -94,7 +94,7 @@ export function DailyOperations() {
                       {res.status === 'paid' && t.paid}
                       {res.status === 'invoiced' && t.invoiced}
                       {res.status === 'defect' && t.defect}
-                      {res.status === 'active' && 'W trakcie'}
+                      {res.status === 'active' && t.active}
                     </Badge>
                   </div>
                   <p className="text-sm font-medium">

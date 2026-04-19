@@ -1,4 +1,5 @@
 import { User, LogIn } from "lucide-react";
+import { Logo } from "@/components/Logo";
 import { useApp } from "@/lib/context";
 import { translations } from "@/lib/translations";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,8 +12,8 @@ export function LoginScreen() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md shadow-xl border-t-4 border-t-primary">
-        <CardHeader className="text-center pb-8 border-b bg-muted/10">
-          <CardTitle className="text-3xl font-bold tracking-tight mb-2 text-primary">{t.appTitle}</CardTitle>
+        <CardHeader className="text-center pb-8 border-b bg-muted/10 flex flex-col items-center">
+          <Logo textSize="xl" iconSize={32} className="mb-4" />
           <CardDescription className="text-base">{t.selectProfile}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 mt-8 px-8 pb-8">

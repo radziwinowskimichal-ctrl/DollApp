@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -42,17 +43,19 @@ export function ReturnTrailerDialog({ reservation, isOpen, onClose }: ReturnTrai
   const [returnPhotos, setReturnPhotos] = useState<string[]>([]);
 
   useEffect(() => {
-    if (reservation) {
-      const c = clients.find(c => c.id === reservation.clientId);
-      if (c) setClient({ ...c });
-      if (reservation.protocol) {
-         setProtocol({ ...reservation.protocol, returnDate: format(new Date(), "dd.MM.yyyy") });
-      }
-      if (reservation.returnPhotos) {
-        setReturnPhotos(reservation.returnPhotos);
-      } else {
-        setReturnPhotos([]);
-      }
+    if (reservation && isOpen) {
+      setTimeout(() => {
+        const c = clients.find(c => c.id === reservation.clientId);
+        if (c) setClient({ ...c });
+        if (reservation.protocol) {
+           setProtocol({ ...reservation.protocol, returnDate: format(new Date(), "dd.MM.yyyy") });
+        }
+        if (reservation.returnPhotos) {
+          setReturnPhotos(reservation.returnPhotos);
+        } else {
+          setReturnPhotos([]);
+        }
+      }, 0);
     }
   }, [reservation, clients, isOpen]);
 
@@ -79,31 +82,21 @@ export function ReturnTrailerDialog({ reservation, isOpen, onClose }: ReturnTrai
   };
 
   const handleSave = () => {
-    const currentUser = profiles.find(p => p.id === currentUserId);
-    const historyEntry = {
-      id: Math.random().toString(36).substring(7),
-      action: "completed" as const,
-      timestamp: new Date().toISOString(),
-      profileId: currentUser?.id,
-      profileName: currentUser?.name || "System"
-    };
-
     updateReservation({
       ...reservation,
       status: "completed",
       protocol,
       returnPhotos,
-      history: [...(reservation.history || []), historyEntry]
-    });
+    }, "completed");
 
-    toast.success("Przyczepa została pomyślnie zwrócona i przeniesiona do archiwum.");
+    toast.success(t.trailerReturnedSuccess);
     onClose();
   };
 
   const handlePrint = () => {
     const success = printDocument('print-area-return', 'Protokol_Rückgabe');
     if (!success) {
-      toast.error(t.printDocumentNotFound || "Zablokowano okno pop-up. Zezwól na wyskakujące okna, aby drukować.");
+      toast.error(t.printDocumentNotFound || t.popupBlockedError);
     }
   };
 
@@ -135,7 +128,7 @@ export function ReturnTrailerDialog({ reservation, isOpen, onClose }: ReturnTrai
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-w-[95vw] lg:max-w-[700px] w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Zdanie Przyczepy (Übergabe und Rückgabeprotokoll)</DialogTitle>
+            <DialogTitle>{t.returnTrailerTitle}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6 py-4">
@@ -196,30 +189,30 @@ export function ReturnTrailerDialog({ reservation, isOpen, onClose }: ReturnTrai
             </div>
 
             <div className="space-y-2">
-                <Label>Mängelbeschreibung (Opis uszkodzeń)</Label>
+                <Label>{t.damageDescriptionLabel}</Label>
                 <Textarea 
                     value={protocol.damageDescription || ''} 
                     onChange={e => setProtocol({...protocol, damageDescription: e.target.value})} 
-                    placeholder="Opisz ewentualne uszkodzenia (Mängel)..."
+                    placeholder={t.damageDescriptionPlaceholder}
                     className="h-24"
                 />
             </div>
 
-            <h4 className="font-medium mt-6 border-b pb-2">Dokumentacja wizualna - Zdanie</h4>
+            <h4 className="font-medium mt-6 border-b pb-2">{t.visualDocumentationReturn}</h4>
             <div className="space-y-4">
               <div className="flex items-center gap-4">
                 <label className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 cursor-pointer">
-                  Dodaj zdjęcie
+                  {t.addPhoto}
                   <input type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={handlePhotoUpload} />
                 </label>
-                <span className="text-sm text-muted-foreground">{returnPhotos.length} zdjęć</span>
+                <span className="text-sm text-muted-foreground">{returnPhotos.length} {t.photosCount}</span>
               </div>
               
               {returnPhotos.length > 0 && (
                 <div className="grid grid-cols-4 gap-2">
                   {returnPhotos.map((photo, i) => (
                     <div key={i} className="relative aspect-square rounded overflow-hidden border">
-                      <img src={photo} alt={`Return photo ${i+1}`} className="w-full h-full object-cover" />
+                      <Image src={photo} alt={`Return photo ${i+1}`} width={200} height={200} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       <button 
                         onClick={() => removePhoto(i)}
                         className="absolute top-1 right-1 bg-black/50 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-black"
@@ -237,13 +230,13 @@ export function ReturnTrailerDialog({ reservation, isOpen, onClose }: ReturnTrai
           <DialogFooter className="mt-6 flex justify-between sm:justify-between w-full">
             <Button variant="secondary" onClick={handlePrint} className="gap-2">
               <Printer className="w-4 h-4" />
-              Drukuj Protokół
+              {t.printProtocol}
             </Button>
             <div className="flex gap-2">
               <Button variant="outline" onClick={onClose}>{t.cancel}</Button>
               <Button onClick={handleSave} className="gap-2">
                 <Archive className="w-4 h-4" />
-                Zakończ i Archiwizuj
+                {t.completeAndArchive}
               </Button>
             </div>
           </DialogFooter>

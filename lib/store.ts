@@ -234,8 +234,8 @@ export const initialClients: Client[] = [
 ];
 
 export const initialReservations: Reservation[] = [
-  { id: "r1", trailerId: "t1", clientId: "c1", startDate: subDays(today, 2).toISOString(), endDate: addDays(today, 2).toISOString(), status: "paid", invoiceNumber: "Re-Nr. 204221" },
-  { id: "r2", trailerId: "t2", clientId: "c2", startDate: subDays(today, 1).toISOString(), endDate: addDays(today, 1).toISOString(), status: "defect", defectNote: "Achse defekt" },
-  { id: "r3", trailerId: "t3", clientId: "c3", startDate: today.toISOString(), endDate: addDays(today, 3).toISOString(), status: "invoiced", invoiceNumber: "Re-Nr. 204222" },
+  { id: "r1", trailerId: "t_ndc130", clientId: "c1", startDate: subDays(today, 2).toISOString(), endDate: addDays(today, 2).toISOString(), status: "paid", invoiceNumber: "Re-Nr. 204221" },
+  { id: "r2", trailerId: "t_ndc135", clientId: "c2", startDate: subDays(today, 1).toISOString(), endDate: addDays(today, 1).toISOString(), status: "defect", defectNote: "Achse defekt" },
+  { id: "r3", trailerId: "t_ndc1112", clientId: "c3", startDate: today.toISOString(), endDate: addDays(today, 3).toISOString(), status: "invoiced", invoiceNumber: "Re-Nr. 204222" },
   { id: "r4", trailerId: "t4", clientId: "c1", startDate: addDays(today, 5).toISOString(), endDate: addDays(today, 7).toISOString(), status: "paid", invoiceNumber: "Re-Nr. 204223" },
 ];

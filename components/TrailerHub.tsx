@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/lib/context";
 import {
@@ -13,7 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Edit, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Search } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -26,7 +27,9 @@ import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -57,21 +60,69 @@ export function TrailerHub() {
   const [status, setStatus] = useState<"available" | "service">("available");
   
   // Sort state
-  const [statusSort, setStatusSort] = useState<"none" | "asc" | "desc">("none");
-
-  const sortedTrailers = [...trailers].sort((a, b) => {
-    if (statusSort === "none") return 0;
-    if (statusSort === "asc") {
-      return a.status.localeCompare(b.status);
-    } else {
-      return b.status.localeCompare(a.status);
-    }
+  const [sortConfig, setSortConfig] = useState<{ key: keyof Trailer | 'type_label'; direction: 'asc' | 'desc' | 'none' }>({
+    key: 'status',
+    direction: 'none'
   });
 
-  const toggleStatusSort = () => {
-    if (statusSort === "none") setStatusSort("asc");
-    else if (statusSort === "asc") setStatusSort("desc");
-    else setStatusSort("none");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [trailerSearch, setTrailerSearch] = useState("");
+
+  const filteredTrailers = trailers.filter(trailer => {
+    const matchesFilter = typeFilter === "all" || trailer.type === typeFilter;
+    const searchLower = trailerSearch.toLowerCase();
+    
+    // Get translated type name
+    const typeLabel = (t.trailerTypes as any)[trailer.type] || "";
+    
+    const matchesSearch = 
+      (trailer.plate || "").toLowerCase().includes(searchLower) ||
+      (trailer.model || "").toLowerCase().includes(searchLower) ||
+      (trailer.vin || "").toLowerCase().includes(searchLower) ||
+      typeLabel.toLowerCase().includes(searchLower);
+      
+    return matchesFilter && matchesSearch;
+  });
+
+  const sortedTrailers = [...filteredTrailers].sort((a, b) => {
+    if (sortConfig.direction === 'none') return 0;
+    
+    let aValue: any;
+    let bValue: any;
+
+    if (sortConfig.key === 'type_label') {
+      aValue = t.trailerTypes[a.type as keyof typeof t.trailerTypes] || a.type;
+      bValue = t.trailerTypes[b.type as keyof typeof t.trailerTypes] || b.type;
+    } else {
+      aValue = a[sortConfig.key as keyof Trailer] || "";
+      bValue = b[sortConfig.key as keyof Trailer] || "";
+    }
+
+    if (typeof aValue === 'string') {
+      return sortConfig.direction === 'asc' 
+        ? aValue.localeCompare(bValue) 
+        : bValue.localeCompare(aValue);
+    }
+    
+    return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
+  });
+
+  const handleSort = (key: keyof Trailer | 'type_label') => {
+    setSortConfig(prev => {
+      if (prev.key === key) {
+        if (prev.direction === 'none') return { key, direction: 'asc' };
+        if (prev.direction === 'asc') return { key, direction: 'desc' };
+        return { key, direction: 'none' };
+      }
+      return { key, direction: 'asc' };
+    });
+  };
+
+  const getSortIcon = (key: keyof Trailer | 'type_label') => {
+    if (sortConfig.key !== key || sortConfig.direction === 'none') {
+      return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+    }
+    return sortConfig.direction === 'asc' ? <ArrowDown className="h-3 w-3" /> : <ArrowUp className="h-3 w-3" />;
   };
 
   const handleOpenDialog = (trailer?: Trailer) => {
@@ -139,44 +190,133 @@ export function TrailerHub() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <Button variant="outline" onClick={() => resetTrailers()}>
-          <ArrowUpDown className="mr-2 h-4 w-4" />
-          {t.syncData}
-        </Button>
-        <Button onClick={() => handleOpenDialog()}>
+    <div className="space-y-6">
+      <div className="flex flex-wrap justify-between items-center gap-4 bg-slate-50 p-2 rounded-xl border">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="ghost" onClick={() => resetTrailers()} className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary h-10">
+            <ArrowUpDown className="mr-2 h-4 w-4" />
+            {t.syncData}
+          </Button>
+
+          <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v || "all")}>
+            <SelectTrigger className="w-[180px] h-10 border-slate-200 bg-white text-[11px] font-bold uppercase tracking-tight">
+              <SelectValue placeholder={t.allTypes} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs font-bold uppercase">{t.allTypes}</SelectItem>
+              {Object.entries(t.trailerCategories || {}).map(([key, label]) => {
+                const categoryTypeMap: Record<string, string[]> = {
+                  tarpaulin: ["Planen_Tieflader", "Planen_Hochlader", "Planen_Drehschemel"],
+                  box: ["Koffer_Flügeltüre", "Koffer_Rampe", "Koffer_Alu", "Koffer_Deckel", "Koffer_Wielkogabarytowy"],
+                  open: ["Offen_Standard", "Offen_Laubgitter"],
+                  fridge: ["fridge_unit"],
+                  tipper: ["Kipper_Tylny", "Kipper_Trójstronny"],
+                  carTransporter: ["Laweta_Uchylna", "Laweta_Platforma", "Maszynowa", "Laweta_Obrotnica"],
+                  motorcycle: ["Motocyklowa_Szynowa", "Opuszczana"],
+                  horse: ["horse_trailer"],
+                  truck: ["LKW_Plane", "LKW_Kipper", "LKW_Tandem"]
+                };
+                const types = categoryTypeMap[key] || [];
+                return (
+                  <SelectGroup key={key}>
+                    <SelectLabel className="px-2 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50">{label}</SelectLabel>
+                    {types.map((type) => (
+                      <SelectItem key={type} value={type} className="text-xs font-medium">
+                        {t.trailerTypes[type as keyof typeof t.trailerTypes]}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                );
+              })}
+              <SelectGroup>
+                <SelectLabel className="px-2 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50">{t.other || "Inne / Others"}</SelectLabel>
+                {["winch", "cableTrailer", "auxWinch", "cablePusher", "compressor"].map((type) => (
+                  <SelectItem key={type} value={type} className="text-xs font-medium">
+                    {t.trailerTypes[type as keyof typeof t.trailerTypes] || type}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <Input
+              type="search"
+              placeholder={language === 'pl' ? "Szukaj przyczepy..." : language === 'de' ? "Fahrzeug suchen..." : "Search trailer..."}
+              className="pl-9 w-[220px] h-10 border-slate-200 bg-white text-xs font-bold"
+              value={trailerSearch}
+              onChange={(e) => setTrailerSearch(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <Button onClick={() => handleOpenDialog()} className="rounded-lg font-black uppercase tracking-tighter px-6 shadow-lg shadow-primary/20 h-10">
           <Plus className="mr-2 h-4 w-4" />
           {t.addTrailer}
         </Button>
       </div>
 
-      <div className="border rounded-lg bg-card text-card-foreground shadow-sm overflow-x-auto">
+      <div className="overflow-hidden">
         <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t.plate}</TableHead>
-              <TableHead>{t.type}</TableHead>
-              <TableHead>{t.modelSpecs}</TableHead>
-              <TableHead>{t.capacity}</TableHead>
-              <TableHead>{t.dimensions}</TableHead>
-              <TableHead>{t.tuvExpiry}</TableHead>
+          <TableHeader className="bg-slate-50/50">
+            <TableRow className="hover:bg-transparent border-b">
               <TableHead 
-                className="cursor-pointer hover:bg-muted/50 transition-colors select-none"
-                onClick={toggleStatusSort}
+                className="cursor-pointer hover:bg-slate-100/50 transition-colors select-none text-[10px] font-black uppercase tracking-wider h-12"
+                onClick={() => handleSort('plate')}
               >
-                <div className="flex items-center gap-1">
-                  {t.status}
-                  {statusSort === "asc" ? (
-                    <ArrowDown className="h-4 w-4" />
-                  ) : statusSort === "desc" ? (
-                    <ArrowUp className="h-4 w-4" />
-                  ) : (
-                    <ArrowUpDown className="h-4 w-4 opacity-50" />
-                  )}
+                <div className="flex items-center gap-1.5">
+                  {t.plate}
+                  {getSortIcon('plate')}
                 </div>
               </TableHead>
-              <TableHead className="text-right">{t.actions}</TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-slate-100/50 transition-colors select-none text-[10px] font-black uppercase tracking-wider h-12"
+                onClick={() => handleSort('type_label')}
+              >
+                <div className="flex items-center gap-1.5">
+                  {t.type}
+                  {getSortIcon('type_label')}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-slate-100/50 transition-colors select-none text-[10px] font-black uppercase tracking-wider h-12"
+                onClick={() => handleSort('model')}
+              >
+                <div className="flex items-center gap-1.5">
+                  {t.modelSpecs}
+                  {getSortIcon('model')}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-slate-100/50 transition-colors select-none text-[10px] font-black uppercase tracking-wider h-12"
+                onClick={() => handleSort('capacity')}
+              >
+                <div className="flex items-center gap-1.5">
+                  {t.capacity}
+                  {getSortIcon('capacity')}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-slate-100/50 transition-colors select-none text-[10px] font-black uppercase tracking-wider h-12"
+                onClick={() => handleSort('dimensions')}
+              >
+                <div className="flex items-center gap-1.5">
+                  {t.dimensions}
+                  {getSortIcon('dimensions')}
+                </div>
+              </TableHead>
+              <TableHead className="text-[10px] font-black uppercase tracking-wider h-12">{t.tuvExpiry}</TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-slate-100/50 transition-colors select-none text-[10px] font-black uppercase tracking-wider h-12"
+                onClick={() => handleSort('status')}
+              >
+                <div className="flex items-center gap-1.5">
+                  {t.status}
+                  {getSortIcon('status')}
+                </div>
+              </TableHead>
+              <TableHead className="text-[10px] font-black uppercase tracking-wider h-12 text-right">{t.actions}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -186,53 +326,66 @@ export function TrailerHub() {
                 data-state={selectedTrailerId === trailer.id ? "selected" : undefined}
                 onClick={() => setSelectedTrailerId(trailer.id)}
                 onDoubleClick={() => router.push(`/trailers/${trailer.id}`)}
-                className="cursor-pointer"
+                className="group cursor-pointer hover:bg-slate-50/50 transition-colors border-b"
               >
-                <TableCell>
+                <TableCell className="py-4">
                   <div className="flex flex-col">
                     {trailer.plate ? (
-                      <span className="font-medium">{trailer.plate}</span>
+                      <span className="font-black text-sm text-slate-900 leading-none">{trailer.plate}</span>
                     ) : (
-                      <span className="italic text-muted-foreground">{t.noPlate}</span>
+                      <span className="italic text-slate-400 font-bold uppercase tracking-tighter text-[10px]">{t.noPlate}</span>
                     )}
                     {trailer.vin && (
-                      <span className="text-xs text-muted-foreground font-mono">{trailer.vin}</span>
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-1.5 font-mono">{trailer.vin}</span>
                     )}
                   </div>
                 </TableCell>
-                <TableCell>{t.trailerTypes[trailer.type as keyof typeof t.trailerTypes] || trailer.type}</TableCell>
                 <TableCell>
-                  <div className="flex flex-col">
-                    <span className="font-medium">{trailer.model || "-"}</span>
+                  <span className="text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border">
+                    {t.trailerTypes[trailer.type as keyof typeof t.trailerTypes] || trailer.type}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-col min-w-[120px]">
+                    <span className="font-bold text-slate-800 text-[13px]">{trailer.model || "-"}</span>
                     {trailer.specs && (
-                      <span className="text-xs text-muted-foreground">{trailer.specs}</span>
+                      <span className="text-[11px] text-slate-500 font-medium mt-0.5">{trailer.specs}</span>
                     )}
                     {trailer.notes && (
-                      <span className="text-xs text-amber-600 italic font-medium mt-1">{trailer.notes}</span>
+                      <span className="text-[10px] text-amber-600 font-black uppercase tracking-tighter mt-1">{trailer.notes}</span>
                     )}
                   </div>
                 </TableCell>
-                <TableCell>{trailer.capacity}</TableCell>
-                <TableCell>{trailer.dimensions}</TableCell>
+                <TableCell>
+                   <span className="text-sm font-black text-slate-700">{trailer.capacity}</span>
+                </TableCell>
+                <TableCell>
+                   <span className="text-sm font-bold text-slate-600 font-mono tracking-tight">{trailer.dimensions}</span>
+                </TableCell>
                 <TableCell>
                   {trailer.tuvExpiry ? (
-                    format(parseISO(trailer.tuvExpiry), "dd.MM.yyyy")
+                    <span className="text-sm font-bold text-slate-600">{format(parseISO(trailer.tuvExpiry), "dd.MM.yyyy")}</span>
                   ) : (
-                    <span className="text-muted-foreground italic">-</span>
+                    <span className="text-slate-300 font-black uppercase tracking-tighter text-[10px]">-</span>
                   )}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={trailer.status === "available" ? "default" : "destructive"}>
+                  <Badge className={cn(
+                    "rounded-full px-3 py-0 h-5 text-[9px] font-black uppercase tracking-tighter border-none shadow-none",
+                    trailer.status === "available" 
+                      ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" 
+                      : "bg-rose-100 text-rose-700 hover:bg-rose-100"
+                  )}>
                     {trailer.status === "available" ? t.available : t.service}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(trailer)}>
-                      <Edit className="h-4 w-4" />
+                  <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={(e) => { e.stopPropagation(); handleOpenDialog(trailer); }}>
+                      <Edit className="h-4 w-4 text-slate-400" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(trailer.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={(e) => { e.stopPropagation(); handleDelete(trailer.id); }}>
+                      <Trash2 className="h-4 w-4 text-rose-400" />
                     </Button>
                   </div>
                 </TableCell>
@@ -265,22 +418,22 @@ export function TrailerHub() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="type">{t.type}</Label>
-                <Select value={type} onValueChange={(v: any) => setType(v)}>
+                <Select value={type} onValueChange={(v) => v && setType(v as TrailerType)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
                     {Object.entries(t.trailerCategories || {}).map(([key, label]) => {
                       const categoryTypeMap: Record<string, string[]> = {
-                        plandeka: ["Planen_Tieflader", "Planen_Hochlader", "Planen_Drehschemel"],
-                        koffer: ["Koffer_Flügeltüre", "Koffer_Rampe", "Koffer_Alu", "Koffer_Deckel", "Koffer_Wielkogabarytowy"],
-                        otwarta: ["Offen_Standard", "Offen_Laubgitter"],
-                        chlodnia: ["Chłodnia"],
-                        wywrotka: ["Kipper_Tylny", "Kipper_Trójstronny"],
-                        laweta: ["Laweta_Uchylna", "Laweta_Platforma", "Maszynowa", "Laweta_Obrotnica"],
-                        motor: ["Motocyklowa_Szynowa", "Opuszczana"],
-                        konie: ["Konie"],
-                        lkw: ["LKW_Plane", "LKW_Kipper", "LKW_Tandem"]
+                        tarpaulin: ["Planen_Tieflader", "Planen_Hochlader", "Planen_Drehschemel"],
+                        box: ["Koffer_Flügeltüre", "Koffer_Rampe", "Koffer_Alu", "Koffer_Deckel", "Koffer_Wielkogabarytowy"],
+                        open: ["Offen_Standard", "Offen_Laubgitter"],
+                        fridge: ["fridge_unit"],
+                        tipper: ["Kipper_Tylny", "Kipper_Trójstronny"],
+                        carTransporter: ["Laweta_Uchylna", "Laweta_Platforma", "Maszynowa", "Laweta_Obrotnica"],
+                        motorcycle: ["Motocyklowa_Szynowa", "Opuszczana"],
+                        horse: ["horse_trailer"],
+                        truck: ["LKW_Plane", "LKW_Kipper", "LKW_Tandem"]
                       };
                       const types = categoryTypeMap[key] || [];
                       return (
@@ -298,9 +451,9 @@ export function TrailerHub() {
                     })}
                     <div>
                       <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-muted/30">
-                        Inne / Others
+                        {t.other}
                       </div>
-                      {["Wciągarka", "Przyczepa kablowa", "Wciągarka pomocnicza", "Wpycharka do kabli", "Kompresor"].map((tKey) => (
+                      {["winch", "cableTrailer", "auxWinch", "cablePusher", "compressor"].map((tKey) => (
                         <SelectItem key={tKey} value={tKey}>
                           {t.trailerTypes[tKey as keyof typeof t.trailerTypes] || tKey}
                         </SelectItem>

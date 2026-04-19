@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import React from 'react';
 import { Client, Reservation, Trailer, RentalAgreement } from '@/lib/store';
 import { format, parseISO } from 'date-fns';
+import { translations } from '@/lib/translations';
 
 interface PrintableAgreementProps {
   reservation: Reservation;
@@ -12,11 +12,6 @@ interface PrintableAgreementProps {
 
 export const PrintableAgreement = React.forwardRef<HTMLDivElement, PrintableAgreementProps>(
   ({ reservation, client, trailer, agreement }, ref) => {
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-      setMounted(true);
-    }, []);
     
     const calculateTotalDeposit = () => {
       let total = Number(agreement.deposits?.general || 0);
@@ -54,7 +49,7 @@ export const PrintableAgreement = React.forwardRef<HTMLDivElement, PrintableAgre
         </div>
 
         <p className="text-sm mb-4">
-          Die Firma Doll Fahrzeugbau oHG, 90475 Nürnberg -nachstehend Vermieter genannt- überlässt den unten aufgeführten Anhänger an den
+          Die Firma Doll Fahrzeugbau oHG, 90475 Nürnberg -nachstehend Vermieter genannt- overlássst den unten aufgeführten Anhänger an den
           nachfolgend genannten Mieter zu den im Einzelnen aufgeführten Bedingungen.
         </p>
 
@@ -109,7 +104,7 @@ export const PrintableAgreement = React.forwardRef<HTMLDivElement, PrintableAgre
               <td className="border border-black p-1 w-1/3">Gesamtgewicht: {trailer.capacity}</td>
             </tr>
             <tr>
-              <td className="border border-black p-1">Typ: {trailer.type}</td>
+              <td className="border border-black p-1">Typ: {(translations.de.trailerTypes as any)[trailer.type] || trailer.type}</td>
               <td className="w-4"></td>
               <td className="border border-black p-1">Nutzlast: </td>
             </tr>
@@ -119,7 +114,7 @@ export const PrintableAgreement = React.forwardRef<HTMLDivElement, PrintableAgre
         {/* Rental Period */}
         <h3 className="font-bold text-sm mb-1">Mietdauer:</h3>
         <p className="text-sm border border-black border-b-0 p-1">
-          Das Mietverhältnis beginnt mit der Abholung des Anhängers beim Vermieter und endet mit der vereinbarten Rückgabe
+          Das Mietverhältnis beginnt with der Abholung des Anhängers beim Vermieter und endet with der vereinbarten Rückgabe
         </p>
         <table className="w-full border-collapse border border-black text-sm mb-4">
           <tbody>
@@ -250,7 +245,7 @@ export const PrintableAgreement = React.forwardRef<HTMLDivElement, PrintableAgre
           allgemeinen Mietbedingungen sind Bestandteil dieses Mietvertrages.<br/>
           Bei Ausfall in Folge technischer Schäden werden keine Kosten u. Folgekosten übernommen. Bei Reifenschäden haftet
           der Mieter und hat die Kosten zu tragen. Der Anhänger ist Haftpflichtversichert mit 1000.- Euro SB im Schadenfall,
-          Teilkasko ebenfalls mit 1000.- Euro SB.
+          Teilkasko ebenfalls with 1000.- Euro SB.
         </p>
 
         {/* Signatures */}
@@ -272,8 +267,7 @@ export const PrintableAgreement = React.forwardRef<HTMLDivElement, PrintableAgre
       </div>
     );
 
-    if (!mounted) return null;
-    return createPortal(content, document.body);
+    return content;
   }
 );
 

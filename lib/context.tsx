@@ -1,9 +1,11 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Trailer, Client, Reservation, UserProfile, initialTrailers, initialClients, initialReservations, initialProfiles } from "./store";
+import { Trailer, Client, Reservation, ReservationHistoryEntry, UserProfile, initialTrailers, initialClients, initialReservations, initialProfiles } from "./store";
 import { ColorOption } from "./colors";
 import { toast } from "sonner";
+
+import { translations } from "./translations";
 
 export type StatusColors = Record<Reservation["status"], ColorOption>;
 
@@ -25,7 +27,7 @@ interface AppState {
   language: string;
   statusColors: StatusColors;
   addReservation: (res: Reservation) => void;
-  updateReservation: (res: Reservation) => void;
+  updateReservation: (res: Reservation, action?: ReservationHistoryEntry["action"]) => void;
   deleteReservation: (id: string) => void;
   updateTrailerStatus: (id: string, status: Trailer["status"]) => void;
   addTrailer: (trailer: Trailer) => void;
@@ -40,6 +42,7 @@ interface AppState {
   loginUser: (id: string) => void;
   logoutUser: () => void;
   checkTrailerAvailability: (trailerId: string, start: Date, end: Date, excludeReservationId?: string) => boolean;
+  logReservationAction: (reservationId: string, action: ReservationHistoryEntry["action"]) => void;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -50,7 +53,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [reservations, setReservations] = useState<Reservation[]>(initialReservations);
   const [profiles, setProfiles] = useState<UserProfile[]>(initialProfiles);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [language, setLanguage] = useState<string>("pl");
+  const [language, setLanguage] = useState<string>("de");
   const [statusColors, setStatusColors] = useState<StatusColors>(defaultStatusColors);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -119,21 +122,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCurrentUserId(null);
   };
 
-  const addReservation = (res: Reservation) => {
+  const getHistoryEntry = (action: ReservationHistoryEntry["action"]): ReservationHistoryEntry => {
     const currentUser = profiles.find(p => p.id === currentUserId);
-    const historyEntry = {
+    return {
       id: Math.random().toString(36).substring(7),
-      action: "created" as const,
+      action,
       timestamp: new Date().toISOString(),
       profileId: currentUser?.id,
       profileName: currentUser?.name || "System"
     };
-    
+  };
+
+  const addReservation = (res: Reservation) => {
+    const historyEntry = getHistoryEntry("created");
     setReservations((prev) => [...prev, { ...res, history: [historyEntry] }]);
   };
 
-  const updateReservation = (res: Reservation) => {
-    setReservations((prev) => prev.map((r) => (r.id === res.id ? res : r)));
+  const updateReservation = (res: Reservation, action?: ReservationHistoryEntry["action"]) => {
+    setReservations((prev) => prev.map((r) => {
+      if (r.id === res.id) {
+        let updatedRes = { ...res };
+        if (action) {
+          const historyEntry = getHistoryEntry(action);
+          updatedRes.history = [...(r.history || []), historyEntry];
+        }
+        return updatedRes;
+      }
+      return r;
+    }));
+  };
+
+  const logReservationAction = (reservationId: string, action: ReservationHistoryEntry["action"]) => {
+    setReservations((prev) => prev.map((r) => {
+      if (r.id === reservationId) {
+        const historyEntry = getHistoryEntry(action);
+        return {
+          ...r,
+          history: [...(r.history || []), historyEntry]
+        };
+      }
+      return r;
+    }));
   };
 
   const deleteReservation = (id: string) => {
@@ -158,7 +187,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const resetTrailers = () => {
     setTrailers([...initialTrailers]);
-    toast.success("Baza przyczep została zsynchronizowana.");
+    const t = translations[language as keyof typeof translations];
+    toast.success(t.trailersSynced);
   };
 
   const updateClientBalance = (id: string, amount: number) => {
@@ -216,7 +246,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updateStatusColor,
       loginUser,
       logoutUser,
-      checkTrailerAvailability
+      checkTrailerAvailability,
+      logReservationAction
     }}>
       {children}
     </AppContext.Provider>
