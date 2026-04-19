@@ -200,7 +200,7 @@ export function ReleaseTrailerDialog({ reservation, isOpen, onClose }: ReleaseTr
               <p className="font-medium">{t.trailer}: {trailer?.plate}</p>
               <p className="text-sm text-muted-foreground">{trailer?.type} | {trailer?.capacity} | {trailer?.dimensions}</p>
               {trailer && (() => {
-                const isLaweta = trailer.type === "Laweta";
+                const isLaweta = trailer.type.toString().includes("Laweta");
                 const capStr = trailer.capacity?.toLowerCase() || "0";
                 const num = parseFloat(capStr.replace(/[^0-9.]/g, "") || "0");
                 const isTon = capStr.includes("t");

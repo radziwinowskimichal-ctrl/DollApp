@@ -50,7 +50,7 @@ export function TrailerHub() {
   const [model, setModel] = useState("");
   const [specs, setSpecs] = useState("");
   const [notes, setNotes] = useState("");
-  const [type, setType] = useState<TrailerType>("Laweta");
+  const [type, setType] = useState<TrailerType>("Planen_Tieflader");
   const [capacity, setCapacity] = useState("");
   const [dimensions, setDimensions] = useState("");
   const [tuvExpiry, setTuvExpiry] = useState("");
@@ -94,7 +94,7 @@ export function TrailerHub() {
       setModel("");
       setSpecs("");
       setNotes("");
-      setType("Laweta");
+      setType("Planen_Tieflader");
       setCapacity("");
       setDimensions("");
       setTuvExpiry("");
@@ -269,15 +269,43 @@ export function TrailerHub() {
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Laweta">{t.trailerTypes.Laweta}</SelectItem>
-                    <SelectItem value="Chłodnia">{t.trailerTypes.Chłodnia}</SelectItem>
-                    <SelectItem value="Konie">{t.trailerTypes.Konie}</SelectItem>
-                    <SelectItem value="Wciągarka">{t.trailerTypes.Wciągarka}</SelectItem>
-                    <SelectItem value="Przyczepa kablowa">{t.trailerTypes["Przyczepa kablowa"]}</SelectItem>
-                    <SelectItem value="Wciągarka pomocnicza">{t.trailerTypes["Wciągarka pomocnicza"]}</SelectItem>
-                    <SelectItem value="Wpycharka do kabli">{t.trailerTypes["Wpycharka do kabli"]}</SelectItem>
-                    <SelectItem value="Kompresor">{t.trailerTypes.Kompresor}</SelectItem>
+                  <SelectContent className="max-h-[300px]">
+                    {Object.entries(t.trailerCategories || {}).map(([key, label]) => {
+                      const categoryTypeMap: Record<string, string[]> = {
+                        plandeka: ["Planen_Tieflader", "Planen_Hochlader", "Planen_Drehschemel"],
+                        koffer: ["Koffer_Flügeltüre", "Koffer_Rampe", "Koffer_Alu", "Koffer_Deckel", "Koffer_Wielkogabarytowy"],
+                        otwarta: ["Offen_Standard", "Offen_Laubgitter"],
+                        chlodnia: ["Chłodnia"],
+                        wywrotka: ["Kipper_Tylny", "Kipper_Trójstronny"],
+                        laweta: ["Laweta_Uchylna", "Laweta_Platforma", "Maszynowa", "Laweta_Obrotnica"],
+                        motor: ["Motocyklowa_Szynowa", "Opuszczana"],
+                        konie: ["Konie"],
+                        lkw: ["LKW_Plane", "LKW_Kipper", "LKW_Tandem"]
+                      };
+                      const types = categoryTypeMap[key] || [];
+                      return (
+                        <div key={key}>
+                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-muted/30">
+                            {label}
+                          </div>
+                          {types.map((tKey) => (
+                            <SelectItem key={tKey} value={tKey}>
+                              {t.trailerTypes[tKey as keyof typeof t.trailerTypes]}
+                            </SelectItem>
+                          ))}
+                        </div>
+                      );
+                    })}
+                    <div>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-muted/30">
+                        Inne / Others
+                      </div>
+                      {["Wciągarka", "Przyczepa kablowa", "Wciągarka pomocnicza", "Wpycharka do kabli", "Kompresor"].map((tKey) => (
+                        <SelectItem key={tKey} value={tKey}>
+                          {t.trailerTypes[tKey as keyof typeof t.trailerTypes] || tKey}
+                        </SelectItem>
+                      ))}
+                    </div>
                   </SelectContent>
                 </Select>
               </div>

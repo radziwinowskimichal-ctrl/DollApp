@@ -21,7 +21,9 @@ import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -276,15 +278,26 @@ export function TrailerCalendar() {
     toast.success(t.clientAdded);
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-      if (e.deltaY > 0) {
-        setStartDateOffset(prev => prev + 1);
-      } else if (e.deltaY < 0) {
-        setStartDateOffset(prev => prev - 1);
+  const calendarDaysRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const el = calendarDaysRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        if (e.deltaY > 0) {
+          setStartDateOffset(prev => prev + 1);
+        } else if (e.deltaY < 0) {
+          setStartDateOffset(prev => prev - 1);
+        }
       }
-    }
-  };
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -300,15 +313,45 @@ export function TrailerCalendar() {
             <ChevronRight className="h-4 w-4" />
           </Button>
           <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v || "all")}>
-            <SelectTrigger className="w-[180px] ml-2">
+            <SelectTrigger className="w-[200px] ml-2">
               <SelectValue placeholder={t.allTypes} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t.allTypes}</SelectItem>
-              <SelectItem value="Laweta">{t.trailerTypes.Laweta}</SelectItem>
-              <SelectItem value="Chłodnia">{t.trailerTypes.Chłodnia}</SelectItem>
-              <SelectItem value="Konie">{t.trailerTypes.Konie}</SelectItem>
-              <SelectItem value="Wciągarka">{t.trailerTypes.Wciągarka}</SelectItem>
+              {Object.entries(t.trailerCategories || {}).map(([key, label]) => {
+                // Map category key to the corresponding types
+                const categoryTypeMap: Record<string, string[]> = {
+                  plandeka: ["Planen_Tieflader", "Planen_Hochlader", "Planen_Drehschemel"],
+                  koffer: ["Koffer_Flügeltüre", "Koffer_Rampe", "Koffer_Alu", "Koffer_Deckel", "Koffer_Wielkogabarytowy"],
+                  otwarta: ["Offen_Standard", "Offen_Laubgitter"],
+                  chlodnia: ["Chłodnia"],
+                  wywrotka: ["Kipper_Tylny", "Kipper_Trójstronny"],
+                  laweta: ["Laweta_Uchylna", "Laweta_Platforma", "Maszynowa", "Laweta_Obrotnica"],
+                  motor: ["Motocyklowa_Szynowa", "Opuszczana"],
+                  konie: ["Konie"],
+                  lkw: ["LKW_Plane", "LKW_Kipper", "LKW_Tandem"]
+                };
+                const types = categoryTypeMap[key] || [];
+                return (
+                  <SelectGroup key={key}>
+                    <SelectLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</SelectLabel>
+                    {types.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {t.trailerTypes[type as keyof typeof t.trailerTypes]}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                );
+              })}
+              {/* Other types not in categories */}
+              <SelectGroup>
+                <SelectLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Inne / Others</SelectLabel>
+                {["Wciągarka", "Przyczepa kablowa", "Wciągarka pomocnicza", "Wpycharka do kabli", "Kompresor"].map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {t.trailerTypes[type as keyof typeof t.trailerTypes] || type}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
         </div>
@@ -319,25 +362,37 @@ export function TrailerCalendar() {
 
       <div 
         className="border rounded-lg bg-card text-card-foreground shadow-sm overflow-hidden"
-        onWheel={handleWheel}
       >
         <ScrollArea className="w-full whitespace-nowrap">
           <div className="flex w-max min-w-full">
             {/* Header Column (Trailers) */}
-            <div className="w-48 flex-shrink-0 border-r bg-muted/50 sticky left-0 z-20">
-              <div className="h-12 border-b flex items-center px-4 font-medium text-sm text-muted-foreground bg-muted/50">
+            <div className="w-56 flex-shrink-0 border-r bg-muted/50 sticky left-0 z-20">
+              <div className="h-12 border-b flex items-center px-4 font-bold text-[11px] uppercase tracking-widest text-muted-foreground bg-muted/50">
                 {t.trailer}
               </div>
               {filteredTrailers.map(trailer => (
-                <div key={trailer.id} className="h-16 border-b flex flex-col justify-center px-4 bg-card">
-                  <div className="font-semibold">{trailer.plate}</div>
-                  <div className="text-xs text-muted-foreground">{t.trailerTypes[trailer.type as keyof typeof t.trailerTypes]}</div>
+                <div key={trailer.id} className="h-16 border-b flex flex-col justify-center px-4 bg-card group/trailer hover:bg-muted/20 transition-colors">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="inline-flex px-1.5 py-0.5 rounded border border-slate-300 bg-slate-50 text-slate-800 font-mono text-[10px] font-bold tracking-tight uppercase shadow-sm">
+                      {trailer.plate}
+                    </span>
+                    {trailer.status === "service" && (
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" title={t.service} />
+                    )}
+                  </div>
+                  <div className="text-[12px] font-semibold text-slate-900 leading-tight truncate" title={t.trailerTypes[trailer.type as keyof typeof t.trailerTypes]}>
+                    {t.trailerTypes[trailer.type as keyof typeof t.trailerTypes]}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground truncate opacity-70 mt-0.5">
+                    {trailer.model ? trailer.model : (trailer.capacity ? trailer.capacity : '')}
+                  </div>
                 </div>
               ))}
             </div>
 
             {/* Days Columns */}
-            {days.map(day => (
+            <div className="flex" ref={calendarDaysRef}>
+              {days.map(day => (
               <div key={day.toISOString()} className="w-24 flex-shrink-0 border-r">
                 <div className={`h-12 border-b flex flex-col items-center justify-center text-sm ${isSameDay(day, today) ? 'bg-primary/10 font-bold text-primary' : 'text-muted-foreground'}`}>
                   <div>{format(day, "EEE", { locale: dateLocale })}</div>
@@ -424,6 +479,7 @@ export function TrailerCalendar() {
                 })}
               </div>
             ))}
+            </div>
           </div>
           <ScrollBar orientation="horizontal" />
         </ScrollArea>
