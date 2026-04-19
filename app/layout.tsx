@@ -6,6 +6,7 @@ import { AppProvider } from '@/lib/context';
 import { Toaster } from '@/components/ui/sonner';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Settings } from '@/components/Settings';
+import { LicenseBarrier } from '@/components/LicenseBarrier';
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -25,6 +26,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
           disableTransitionOnChange
         >
           <AppProvider>
+            <LicenseBarrier />
             {children}
             <Settings />
             <Toaster />
