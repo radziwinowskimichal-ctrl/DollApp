@@ -6,12 +6,19 @@ import { format, parseISO } from "date-fns";
 import { pl, enUS, de } from "date-fns/locale";
 import { translations } from "@/lib/translations";
 import { badgeColorClassMap } from "@/lib/colors";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Truck, User, Calendar, FileText, CheckCircle2, Search, Ban } from "lucide-react";
+import { Truck, User, Calendar, FileText, CheckCircle2, Search, XCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Reservation, Trailer, Client } from "@/lib/store";
+import { PrintableAgreement } from "./PrintableAgreement";
+import { PrintableReturnProtocol } from "./PrintableReturnProtocol";
+import { Printer } from "lucide-react";
+import { printDocument } from "@/lib/print";
+import { toast } from "sonner";
 
 export function Archive() {
   const { trailers, clients, reservations, language, statusColors } = useApp();
@@ -19,11 +26,10 @@ export function Archive() {
   const dateLocale = language === 'pl' ? pl : language === 'de' ? de : enUS;
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState("completed");
 
-  const filterReservations = (resStatus: "completed" | "cancelled") => {
+  const getFilteredReservations = (status: string) => {
     return reservations
-      .filter(r => r.status === resStatus)
+      .filter(r => r.status === status)
       .filter(res => {
         const trailer = trailers.find(t => t.id === res.trailerId);
         const client = clients.find(c => c.id === res.clientId);
@@ -34,92 +40,118 @@ export function Archive() {
       .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime());
   };
 
-  const completedReservationsList = filterReservations("completed");
-  const cancelledReservationsList = filterReservations("cancelled");
+  const completedReservations = getFilteredReservations("completed");
+  const cancelledReservations = getFilteredReservations("cancelled");
 
-  // Instead of a Component, we just define a map function
-  const renderList = (list: typeof completedReservationsList, isCancelled?: boolean) => {
-    if (list.length === 0) {
-      return (
-        <div className="text-center py-12 bg-muted/20 rounded-xl border border-dashed">
-          {isCancelled ? <Ban className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3" /> : <CheckCircle2 className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3" />}
-          <p className="text-muted-foreground font-medium">{t.noArchiveEntries}</p>
-        </div>
-      );
-    }
+  const [printAgreementRes, setPrintAgreementRes] = useState<Reservation | null>(null);
+  const [printProtocolRes, setPrintProtocolRes] = useState<Reservation | null>(null);
+
+  const handlePrintAgreement = (res: Reservation) => {
+    setPrintProtocolRes(null);
+    setPrintAgreementRes(res);
+    setTimeout(() => {
+      const success = printDocument('print-area', 'Umowa');
+      if (!success) toast.error("Zablokowano okno pop-up dla wydruku.");
+      setTimeout(() => setPrintAgreementRes(null), 1000);
+    }, 500); // give time for portals to render DOM elements
+  };
+
+  const handlePrintProtocol = (res: Reservation) => {
+    setPrintAgreementRes(null);
+    setPrintProtocolRes(res);
+    setTimeout(() => {
+      const success = printDocument('print-area-return', 'Protokol');
+      if (!success) toast.error("Zablokowano okno pop-up dla wydruku.");
+      setTimeout(() => setPrintProtocolRes(null), 1000);
+    }, 500);
+  };
+
+  const renderReservationCard = (res: Reservation) => {
+    const trailer = trailers.find(t => t.id === res.trailerId);
+    const client = clients.find(c => c.id === res.clientId);
+    const statusColor = statusColors[res.status as keyof typeof statusColors] || "slate";
 
     return (
-      <div className="grid gap-4">
-        {list.map((res) => {
-          const trailer = trailers.find(t => t.id === res.trailerId);
-          const client = clients.find(c => c.id === res.clientId);
-          const statusColor = statusColors[res.status as keyof typeof statusColors] || "slate";
-
-          return (
-            <Card key={res.id} className="overflow-hidden transition-all hover:shadow-md">
-              <div className="flex flex-col md:flex-row">
-                <div className="bg-muted/30 p-6 md:w-1/3 border-b md:border-b-0 md:border-r flex flex-col justify-center">
-                  <div className="flex items-center gap-2 mb-2 text-primary">
-                    <Truck className="w-5 h-5" />
-                    <h3 className="font-bold text-lg">{trailer?.plate}</h3>
-                  </div>
-                  <Badge variant="outline" className="w-fit mb-2">
-                    {trailer ? t.trailerTypes[trailer.type as keyof typeof t.trailerTypes] : ''}
-                  </Badge>
-                </div>
-                
-                <div className="p-6 flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-3">
-                      <User className="w-5 h-5 text-muted-foreground mt-0.5" />
-                      <div>
-                        <p className="font-medium">{client?.name}</p>
-                        <p className="text-sm text-muted-foreground">{client?.phone}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-start gap-3">
-                      <Calendar className="w-5 h-5 text-muted-foreground mt-0.5" />
-                      <div className="text-sm">
-                        <p><span className="text-muted-foreground">{t.startDate}:</span> {format(parseISO(res.startDate), "PPP, HH:mm", { locale: dateLocale })}</p>
-                        <p><span className="text-muted-foreground">{t.endDate}:</span> {format(parseISO(res.endDate), "PPP, HH:mm", { locale: dateLocale })}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <Badge className={cn("px-2.5 py-0.5 font-medium", badgeColorClassMap[statusColor] || (res.status === 'cancelled' && "bg-slate-500 text-white hover:bg-slate-600"))}>
-                        {String(t[res.status as keyof typeof t] || res.status)}
-                      </Badge>
-                    </div>
-
-                    {res.invoiceNumber && (
-                      <div className="flex items-start gap-3">
-                        <FileText className="w-5 h-5 text-muted-foreground mt-0.5" />
-                        <div className="text-sm">
-                          <p className="text-muted-foreground">{t.invoiceNumber}</p>
-                          <p className="font-medium">{res.invoiceNumber}</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {res.defectNote && (
-                      <div className="flex items-start gap-3">
-                        <FileText className="w-5 h-5 text-muted-foreground mt-0.5" />
-                        <div className="text-sm">
-                          <p className="text-muted-foreground">{t.defectNote}</p>
-                          <p className="font-medium text-destructive">{res.defectNote}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+      <Card key={res.id} className="overflow-hidden transition-all hover:shadow-md">
+        <div className="flex flex-col md:flex-row">
+          <div className="bg-muted/30 p-6 md:w-1/3 border-b md:border-b-0 md:border-r flex flex-col justify-center">
+            <div className="flex items-center gap-2 mb-2 text-primary">
+              <Truck className="w-5 h-5" />
+              <h3 className="font-bold text-lg">{trailer?.plate}</h3>
+            </div>
+            <Badge variant="outline" className="w-fit mb-2">
+              {trailer ? t.trailerTypes[trailer.type as keyof typeof t.trailerTypes] : ''}
+            </Badge>
+          </div>
+          
+          <div className="p-6 flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <User className="w-5 h-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="font-medium">{client?.name}</p>
+                  <p className="text-sm text-muted-foreground">{client?.phone}</p>
                 </div>
               </div>
-            </Card>
-          );
-        })}
-      </div>
+              
+              <div className="flex items-start gap-3">
+                <Calendar className="w-5 h-5 text-muted-foreground mt-0.5" />
+                <div className="text-sm">
+                  <p><span className="text-muted-foreground">{t.startDate}:</span> {format(parseISO(res.startDate), "PPP, HH:mm", { locale: dateLocale })}</p>
+                  <p><span className="text-muted-foreground">{t.endDate}:</span> {format(parseISO(res.endDate), "PPP, HH:mm", { locale: dateLocale })}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Badge className={cn("px-2.5 py-0.5 font-medium", badgeColorClassMap[statusColor])}>
+                  {String(t[res.status as keyof typeof t] || res.status)}
+                </Badge>
+              </div>
+
+              {res.invoiceNumber && (
+                <div className="flex items-start gap-3">
+                  <FileText className="w-5 h-5 text-muted-foreground mt-0.5" />
+                  <div className="text-sm">
+                    <p className="text-muted-foreground">{t.invoiceNumber}</p>
+                    <p className="font-medium">{res.invoiceNumber}</p>
+                  </div>
+                </div>
+              )}
+
+              {res.defectNote && (
+                <div className="flex items-start gap-3">
+                  <FileText className="w-5 h-5 text-muted-foreground mt-0.5" />
+                  <div className="text-sm">
+                    <p className="text-muted-foreground">{t.defectNote}</p>
+                    <p className="font-medium text-destructive">{res.defectNote}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Document Actions */}
+        {(res.agreement || res.protocol) && (
+          <div className="bg-muted/10 border-t p-4 flex gap-3 justify-end items-center">
+            <span className="text-sm text-muted-foreground mr-auto pl-2">Zapisane dokumenty:</span>
+            {res.agreement && (
+              <Button size="sm" variant="outline" onClick={() => handlePrintAgreement(res)} className="gap-2">
+                <Printer className="w-4 h-4" />
+                Odrukuj Umowę (Wydanie)
+              </Button>
+            )}
+            {res.protocol && (
+              <Button size="sm" variant="outline" onClick={() => handlePrintProtocol(res)} className="gap-2">
+                <Printer className="w-4 h-4" />
+                Odrukuj Protokół (Zdanie)
+              </Button>
+            )}
+          </div>
+        )}
+      </Card>
     );
   };
 
@@ -142,24 +174,53 @@ export function Archive() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-6">
-          <TabsTrigger value="completed" className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4" />
-            {t.completed} ({completedReservationsList.length})
-          </TabsTrigger>
-          <TabsTrigger value="cancelled" className="flex items-center gap-2">
-            <Ban className="w-4 h-4" />
-            {t.cancelled || "Anulowano"} ({cancelledReservationsList.length})
-          </TabsTrigger>
+      <Tabs defaultValue="completed" className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="completed">{t.completed}</TabsTrigger>
+          <TabsTrigger value="cancelled">{t.cancelled}</TabsTrigger>
         </TabsList>
-        <TabsContent value="completed" className="mt-0">
-          {renderList(completedReservationsList)}
+        <TabsContent value="completed">
+          <div className="grid gap-4">
+            {completedReservations.length === 0 ? (
+              <div className="text-center py-12 bg-muted/20 rounded-xl border border-dashed">
+                <CheckCircle2 className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3" />
+                <p className="text-muted-foreground font-medium">{t.noArchiveEntries}</p>
+              </div>
+            ) : (
+              completedReservations.map(renderReservationCard)
+            )}
+          </div>
         </TabsContent>
-        <TabsContent value="cancelled" className="mt-0">
-          {renderList(cancelledReservationsList, true)}
+        <TabsContent value="cancelled">
+          <div className="grid gap-4">
+            {cancelledReservations.length === 0 ? (
+              <div className="text-center py-12 bg-muted/20 rounded-xl border border-dashed">
+                <XCircle className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3" />
+                <p className="text-muted-foreground font-medium">{t.noArchiveEntries}</p>
+              </div>
+            ) : (
+              cancelledReservations.map(renderReservationCard)
+            )}
+          </div>
         </TabsContent>
       </Tabs>
+
+      {printAgreementRes && printAgreementRes.agreement && clients.find(c => c.id === printAgreementRes.clientId) && trailers.find(t => t.id === printAgreementRes.trailerId) && (
+        <PrintableAgreement 
+          reservation={printAgreementRes}
+          client={clients.find(c => c.id === printAgreementRes.clientId)!}
+          trailer={trailers.find(t => t.id === printAgreementRes.trailerId)!}
+          agreement={printAgreementRes.agreement}
+        />
+      )}
+      
+      {printProtocolRes && printProtocolRes.protocol && clients.find(c => c.id === printProtocolRes.clientId) && trailers.find(t => t.id === printProtocolRes.trailerId) && (
+        <PrintableReturnProtocol 
+          reservation={printProtocolRes}
+          client={clients.find(c => c.id === printProtocolRes.clientId)!}
+          trailer={trailers.find(t => t.id === printProtocolRes.trailerId)!}
+        />
+      )}
     </div>
   );
 }

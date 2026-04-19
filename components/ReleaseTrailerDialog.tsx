@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { Printer } from "lucide-react";
 import { PrintableAgreement } from "./PrintableAgreement";
+import { printDocument } from "@/lib/print";
 
 import { translations } from "@/lib/translations";
 
@@ -92,54 +93,9 @@ export function ReleaseTrailerDialog({ reservation, isOpen, onClose }: ReleaseTr
   };
 
   const handlePrint = () => {
-    const printContent = document.getElementById('print-area');
-    if (!printContent) {
-      toast.error(t.printDocumentNotFound);
-      return;
-    }
-
-    try {
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
-          .map(el => el.outerHTML)
-          .join('\n');
-          
-        printWindow.document.write(`
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>${t.printAgreementTitle}</title>
-              ${styles}
-              <style>
-                body { background: white; margin: 0; padding: 20px; }
-                #print-area { display: block !important; position: static !important; visibility: visible !important; }
-                @media print {
-                  @page { margin: 1cm; }
-                  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                }
-              </style>
-            </head>
-            <body>
-              ${printContent.outerHTML}
-              <script>
-                window.onload = () => {
-                  setTimeout(() => {
-                    window.print();
-                    window.close();
-                  }, 500);
-                };
-              </script>
-            </body>
-          </html>
-        `);
-        printWindow.document.close();
-      } else {
-        window.print();
-        toast.info(t.printPopupBlocked);
-      }
-    } catch (e) {
-      window.print();
+    const success = printDocument('print-area', t.printAgreementTitle || 'Umowa_Wydanie');
+    if (!success) {
+      toast.error(t.printDocumentNotFound || "Zablokowano okno pop-up. Zezwól na wyskakujące okna, aby drukować.");
     }
   };
 

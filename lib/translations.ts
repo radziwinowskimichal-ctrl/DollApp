@@ -28,7 +28,7 @@ export const translations = {
     invoiced: "Zafakturowane",
     defect: "Serwis / Defekt",
     completed: "Ukończono",
-    cancelled: "Anulowano",
+    cancelled: "Anulowane",
     cancel: "Anuluj",
     saveReservation: "Zapisz rezerwację",
     clientType: "Typ klienta",
@@ -83,9 +83,7 @@ export const translations = {
     saveChanges: "Zapisz zmiany",
     reservationUpdated: "Rezerwacja zaktualizowana",
     reservationDeleted: "Rezerwacja usunięta",
-    reservationCancelled: "Rezerwacja anulowana i przeniesiona do archiwum",
     areYouSure: "Czy na pewno?",
-    areYouSureCancel: "Czy na pewno chcesz usunąć tę rezerwację? Zostanie ona anulowana i przeniesiona pod tą samą nazwą do archiwum.",
     dailyOperations: "Dzisiaj",
     pickupsList: "Lista wydań",
     returnsList: "Lista zwrotów",
@@ -154,9 +152,7 @@ export const translations = {
     actionstatus_changed: "Zmieniono status",
     actioncompleted: "Zakończono",
     actioncancelled: "Anulowano",
-    by: "przez",
-    overlapError: "Błąd: Przyczepa jest już zarezerwowana w tym terminie dla innego klienta.",
-    suggestedAlternative: "Ta przyczepa jest zajęta. Zmieniono przyczepę na dostępną z tej samej klasy: {new}. Zweryfikuj i zapisz ponownie."
+    by: "przez"
   },
   en: {
     appTitle: "Smart Trailer Manager",
@@ -242,9 +238,7 @@ export const translations = {
     saveChanges: "Save Changes",
     reservationUpdated: "Reservation updated",
     reservationDeleted: "Reservation deleted",
-    reservationCancelled: "Reservation cancelled and moved to archive",
     areYouSure: "Are you sure?",
-    areYouSureCancel: "Are you sure you want to delete this reservation? It will be cancelled and moved to the archive.",
     dailyOperations: "Today",
     pickupsList: "Pickups List",
     returnsList: "Returns List",
@@ -313,9 +307,7 @@ export const translations = {
     actionstatus_changed: "Status changed",
     actioncompleted: "Completed",
     actioncancelled: "Cancelled",
-    by: "by",
-    overlapError: "Error: The trailer is already booked by another client during this time.",
-    suggestedAlternative: "Trailer is booked. Automatically switched to available alternative in the same class: {new}. Verify and save again."
+    by: "by"
   },
   de: {
     appTitle: "Smart Trailer Manager",
@@ -401,9 +393,7 @@ export const translations = {
     saveChanges: "Änderungen speichern",
     reservationUpdated: "Reservierung aktualisiert",
     reservationDeleted: "Reservierung gelöscht",
-    reservationCancelled: "Reservierung storniert und ins Archiv verschoben",
     areYouSure: "Sind Sie sicher?",
-    areYouSureCancel: "Möchten Sie diese Reservierung wirklich löschen? Sie wird storniert und ins Archiv verschoben.",
     dailyOperations: "Heute",
     pickupsList: "Abholungsliste",
     returnsList: "Rückgabeliste",
@@ -472,8 +462,6 @@ export const translations = {
     actionstatus_changed: "Status geändert",
     actioncompleted: "Abgeschlossen",
     actioncancelled: "Storniert",
-    by: "von",
-    overlapError: "Fehler: Der Anhänger ist zu dieser Zeit bereits von einem anderen Kunden gebucht.",
-    suggestedAlternative: "Anhänger ist belegt. Es wurde automatisch auf eine verfügbare Alternative der gleichen Klasse gewechselt: {new}. Bitte prüfen und erneut speichern."
+    by: "von"
   }
 };

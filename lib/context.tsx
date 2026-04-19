@@ -11,8 +11,8 @@ const defaultStatusColors: StatusColors = {
   invoiced: "amber",
   defect: "red",
   completed: "slate",
-  cancelled: "slate",
-  active: "blue"
+  active: "blue",
+  cancelled: "red"
 };
 
 interface AppState {

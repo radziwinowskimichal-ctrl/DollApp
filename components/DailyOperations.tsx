@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { ReleaseTrailerDialog } from "./ReleaseTrailerDialog";
+import { ReturnTrailerDialog } from "./ReturnTrailerDialog";
 import { Reservation } from "@/lib/store";
 
 export function DailyOperations() {
@@ -20,17 +21,15 @@ export function DailyOperations() {
   const t = translations[language as keyof typeof translations] || translations.pl;
 
   const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
+  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
 
   const todayPickups = reservations.filter(r => isToday(parseISO(r.startDate)) && r.status !== "completed" && r.status !== "active" && r.status !== "cancelled");
   const todayReturns = reservations.filter(r => isToday(parseISO(r.endDate)) && r.status !== "completed" && r.status !== "cancelled");
 
-  const handleComplete = (reservationId: string) => {
-    const res = reservations.find(r => r.id === reservationId);
-    if (res) {
-      updateReservation({ ...res, status: "completed" });
-      toast.success(t.reservationUpdated);
-    }
+  const handleComplete = (res: Reservation) => {
+    setSelectedReservation(res);
+    setReturnDialogOpen(true);
   };
 
   const handleRelease = (res: Reservation) => {
@@ -118,7 +117,7 @@ export function DailyOperations() {
                   {t.releaseTrailer}
                 </Button>
               ) : (
-                <Button onClick={() => handleComplete(res.id)} className="gap-2">
+                <Button onClick={() => handleComplete(res)} className="gap-2">
                   <CheckCircle2 className="w-4 h-4" />
                   {t.markAsCompleted}
                 </Button>
@@ -171,6 +170,11 @@ export function DailyOperations() {
         reservation={selectedReservation} 
         isOpen={releaseDialogOpen} 
         onClose={() => setReleaseDialogOpen(false)} 
+      />
+      <ReturnTrailerDialog 
+        reservation={selectedReservation} 
+        isOpen={returnDialogOpen} 
+        onClose={() => setReturnDialogOpen(false)} 
       />
     </div>
   );

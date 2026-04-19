@@ -50,6 +50,21 @@ export interface RentalAgreement {
   paymentMethod?: "BAR" | "EC-Karte" | "Kreditkarte";
 }
 
+export interface ReturnProtocolState {
+  fahrzeugausstattung: { uebergabe: boolean; rueckgabe: boolean };
+  planeUndSpriegel: { uebergabe: boolean; rueckgabe: boolean };
+  kofferaufbau: { uebergabe: boolean; rueckgabe: boolean };
+  kupplung: { uebergabe: boolean; rueckgabe: boolean };
+  auflaufbremse: { uebergabe: boolean; rueckgabe: boolean };
+  elektrik: { uebergabe: boolean; rueckgabe: boolean };
+  reifen: { uebergabe: boolean; rueckgabe: boolean };
+  stuetzrad: { uebergabe: boolean; rueckgabe: boolean };
+  bordwaende: { uebergabe: boolean; rueckgabe: boolean };
+  leuchten: { uebergabe: boolean; rueckgabe: boolean };
+  damageDescription?: string;
+  returnDate?: string;
+}
+
 export interface ReservationHistoryEntry {
   id: string;
   action: "created" | "released" | "edited" | "status_changed" | "completed" | "cancelled";
@@ -68,6 +83,7 @@ export interface Reservation {
   invoiceNumber?: string;
   defectNote?: string;
   agreement?: RentalAgreement;
+  protocol?: ReturnProtocolState;
   history?: ReservationHistoryEntry[];
 }
 

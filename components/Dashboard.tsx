@@ -34,8 +34,8 @@ export function Dashboard({ onActionClick }: DashboardProps) {
 
   const today = new Date();
   
-  const todayPickups = reservations.filter(r => isToday(parseISO(r.startDate)) && r.status !== "completed");
-  const todayReturns = reservations.filter(r => isToday(parseISO(r.endDate)) && r.status !== "completed");
+  const todayPickups = reservations.filter(r => isToday(parseISO(r.startDate)) && r.status !== "completed" && r.status !== "cancelled");
+  const todayReturns = reservations.filter(r => isToday(parseISO(r.endDate)) && r.status !== "completed" && r.status !== "cancelled");
   const inService = trailers.filter(t => t.status === "service");
   
   const upcomingTuv = trailers.filter(t => {

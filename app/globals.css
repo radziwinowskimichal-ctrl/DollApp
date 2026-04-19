@@ -48,7 +48,7 @@
 }
 
 @media screen {
-  #print-area {
+  #print-area, #print-area-return {
     display: none !important;
   }
 }
@@ -57,10 +57,11 @@
   body * {
     visibility: hidden;
   }
-  #print-area, #print-area * {
+  #print-area, #print-area *,
+  #print-area-return, #print-area-return * {
     visibility: visible;
   }
-  #print-area {
+  #print-area, #print-area-return {
     position: absolute;
     left: 0;
     top: 0;
